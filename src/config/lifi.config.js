@@ -4,10 +4,11 @@
  */
 
 export const LIFI_CONFIG = {
-  // ✅ Backend proxy URL (REQUIRED in production)
+  // ✅ Backend proxy URL
+  // Falls back to relative path for Vercel
   apiUrl: import.meta.env.VITE_BACKEND_API_URL 
     ? `${import.meta.env.VITE_BACKEND_API_URL}/lifi-proxy`
-    : null, // ❌ No fallback in production
+    : '/lifi-proxy', 
   
   // ❌ REMOVED: apiKey (never expose to client)
   
@@ -16,10 +17,8 @@ export const LIFI_CONFIG = {
   quoteRefreshInterval: 15000,
 };
 
-// Validate configuration on import
-if (import.meta.env.PROD && !LIFI_CONFIG.apiUrl) {
-  throw new Error('❌ VITE_BACKEND_API_URL is required in production');
-}
+// Removed strict validation to allow relative paths
+// if (import.meta.env.PROD && !LIFI_CONFIG.apiUrl) { ... }
 
 // RPC URLs (use your own for production)
 export const RPC_URLS = {
