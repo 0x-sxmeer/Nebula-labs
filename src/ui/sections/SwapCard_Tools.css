@@ -1,0 +1,45 @@
+/* =========================================
+   TOOLS SUBVIEW & ROUTES LIST
+   ========================================= */
+
+.tools-subview {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Ensure it takes full height */
+  min-height: 0; /* Critical for flex scroll */
+}
+
+.routes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0; /* Critical for flex scroll */
+}
+
+/* Custom Scrollbar for Lists */
+.routes-list::-webkit-scrollbar,
+.tools-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.routes-list::-webkit-scrollbar-track,
+.tools-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+
+.routes-list::-webkit-scrollbar-thumb,
+.tools-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 4px;
+}
+
+.routes-list::-webkit-scrollbar-thumb:hover,
+.tools-list::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}

@@ -1,0 +1,492 @@
+/* =========================================
+   CHAIN TOKEN SELECTOR - PREMIUM MODAL
+   ========================================= */
+
+.selector-container {
+  position: relative;
+}
+
+/* =========================================
+   TRIGGER BUTTON - PREMIUM
+   ========================================= */
+
+.selector-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.12) 0%, rgba(255, 107, 53, 0.06) 100%);
+  border: 1px solid rgba(255, 107, 53, 0.25);
+  border-radius: var(--radius-full, 9999px);
+  padding: 0.65rem 1.1rem;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  min-width: 145px;
+  transition: all var(--transition-smooth, 0.3s cubic-bezier(0.4, 0, 0.2, 1));
+  position: relative;
+  overflow: hidden;
+}
+
+.selector-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.selector-button:hover::before {
+  opacity: 1;
+}
+
+.selector-button:hover {
+  background: linear-gradient(135deg, rgba(255, 107, 53, 0.2) 0%, rgba(255, 107, 53, 0.1) 100%);
+  border-color: rgba(255, 107, 53, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.2);
+}
+
+.selector-button:active {
+  transform: translateY(0);
+}
+
+.selector-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.token-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.token-symbol {
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
+/* =========================================
+   MODAL - PREMIUM GLASS
+   ========================================= */
+
+.selector-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  width: 780px;
+  height: 580px;
+  background: linear-gradient(180deg, #0c0c10 0%, #08080c 100%);
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: var(--radius-2xl, 24px);
+  z-index: 100;
+  box-shadow: 
+    0 30px 100px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 107, 53, 0.1),
+    0 0 80px rgba(255, 107, 53, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modal-enter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* =========================================
+   MODAL HEADER
+   ========================================= */
+
+.selector-header {
+  padding: 1.4rem 1.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(255, 107, 53, 0.03) 0%, transparent 100%);
+}
+
+.selector-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.close-button {
+  cursor: pointer;
+  color: var(--text-tertiary, rgba(255, 255, 255, 0.5));
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  transform: rotate(90deg);
+}
+
+/* =========================================
+   SPLIT VIEW LAYOUT
+   ========================================= */
+
+.split-view-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* =========================================
+   LEFT COLUMN - TOKENS
+   ========================================= */
+
+.column-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+
+.search-container {
+  padding: 1.1rem 1.5rem;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg, 16px);
+  padding: 0.9rem 0.9rem 0.9rem 2.75rem;
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all var(--transition-smooth, 0.3s);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
+}
+
+.search-input:focus {
+  border-color: var(--primary, #FF6B35);
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: 
+    0 0 0 1px var(--primary, #FF6B35),
+    0 0 25px rgba(255, 107, 53, 0.15);
+}
+
+.search-icon {
+  position: absolute;
+  left: 2.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.search-container:focus-within .search-icon {
+  color: var(--primary, #FF6B35);
+}
+
+.token-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* =========================================
+   RIGHT COLUMN - CHAINS
+   ========================================= */
+
+.column-right {
+  width: 270px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.column-header {
+  padding: 1.3rem 1.3rem 0.9rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.35));
+  font-weight: 700;
+}
+
+.chain-list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0.9rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* =========================================
+   LIST ITEMS - UNIVERSAL PREMIUM
+   ========================================= */
+
+.list-item {
+  position: relative;
+  display: flex; /* Fallback */
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px; /* Slightly reduced padding to balance min-height */
+  min-height: 64px; /* Force minimum height to prevent squashing */
+  width: 100%; /* Ensure full width */
+  border-radius: var(--radius-lg, 16px);
+  cursor: pointer;
+  transition: all var(--transition-smooth, 0.2s);
+  border: 1px solid transparent;
+  overflow: hidden;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box; /* Proper box sizing */
+}
+
+/* =========================================
+   TOKEN ITEMS - GRID LAYOUT (The Fix)
+   ========================================= */
+
+.token-item {
+  display: grid;
+  grid-template-columns: 42px 1fr auto; /* Fixed Logo | Fluid Text | Fixed Price */
+  align-items: center;
+  gap: 16px;
+  width: 100%; /* Ensure grid stretches */
+}
+
+.token-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.token-item.selected {
+  background: rgba(255, 107, 53, 0.1);
+  border-color: rgba(255, 107, 53, 0.3);
+  box-shadow: inset 0 0 20px rgba(255, 107, 53, 0.05);
+}
+
+/* =========================================
+   CHAIN ITEMS
+   ========================================= */
+
+.chain-item {
+  display: flex; /* Flex is fine for chains */
+  justify-content: flex-start;
+  padding: 0.85rem 1rem;
+}
+
+.chain-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.chain-item.selected {
+  background: linear-gradient(90deg, rgba(255, 107, 53, 0.15) 0%, rgba(255, 107, 53, 0.05) 100%);
+  border-color: rgba(255, 107, 53, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================
+   ITEM COMPONENTS
+   ========================================= */
+
+.item-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #1a1a22;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  object-fit: contain;
+  /* Grid Item Placement */
+  grid-column: 1; 
+}
+
+.item-logo.small {
+  width: 30px;
+  height: 30px;
+}
+
+.item-info {
+  /* Grid Item Placement */
+  grid-column: 2;
+  min-width: 0; /* CRITICAL for Grid text truncation */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.item-symbol {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.item-name {
+  font-size: 0.8rem;
+  color: var(--text-muted, rgba(255, 255, 255, 0.45));
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.item-price-column {
+  /* Grid Item Placement */
+  grid-column: 3;
+  text-align: right;
+  white-space: nowrap; /* Never wrap price */
+}
+
+.price-val {
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -0.02em;
+}
+
+.chain-name {
+  font-weight: 600;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.chain-item.selected .chain-name {
+  color: white;
+  text-shadow: 0 0 10px rgba(255, 107, 53, 0.4);
+}
+
+.active-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary, #FF6B35);
+  box-shadow: 0 0 8px var(--primary, #FF6B35);
+}
+
+/* Custom Scrollbar for lists */
+.token-list-container::-webkit-scrollbar,
+.chain-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.token-list-container::-webkit-scrollbar-track,
+.chain-list-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.token-list-container::-webkit-scrollbar-thumb,
+.chain-list-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.token-list-container::-webkit-scrollbar-thumb:hover,
+.chain-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* =========================================
+   BACKDROP
+   ========================================= */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: backdrop-fade 0.2s ease-out;
+}
+
+@keyframes backdrop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Skeleton Loader Shimmer Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 820px) {
+  .selector-modal {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 100px);
+    max-height: 600px;
+  }
+  
+  .split-view-container {
+    flex-direction: column-reverse;
+  }
+  
+  .column-right {
+    width: 100%;
+    height: 180px;
+    border-left: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .chain-list-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0.75rem;
+  }
+  
+  .chain-item {
+    flex: 0 0 auto;
+    padding: 0.6rem 1rem;
+  }
+}

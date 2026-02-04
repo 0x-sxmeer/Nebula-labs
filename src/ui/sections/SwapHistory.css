@@ -1,0 +1,327 @@
+/* =========================================
+   SWAP HISTORY - PREMIUM MODAL
+   ========================================= */
+
+.history-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+}
+
+.history-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 480px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 100px);
+    background: linear-gradient(180deg, #0c0c10 0%, #08080c 100%);
+    border: 1px solid rgba(255, 107, 53, 0.2);
+    border-radius: 24px;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 
+        0 30px 100px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(255, 107, 53, 0.1),
+        0 0 80px rgba(255, 107, 53, 0.1);
+    overflow: hidden;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(180deg, rgba(255, 107, 53, 0.03) 0%, transparent 100%);
+}
+
+.history-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+}
+
+.history-title svg {
+    color: var(--primary, #FF6B35);
+}
+
+.history-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.clear-btn,
+.close-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.clear-btn:hover,
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.clear-btn:hover {
+    color: #FF5252;
+}
+
+.confirm-clear {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 1.5rem;
+    background: rgba(255, 82, 82, 0.1);
+    border-bottom: 1px solid rgba(255, 82, 82, 0.2);
+    font-size: 0.9rem;
+    color: #FF5252;
+}
+
+.confirm-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.confirm-buttons button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.confirm-buttons button:first-child {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+}
+
+.confirm-buttons button.danger {
+    background: #FF5252;
+    border: none;
+    color: white;
+}
+
+.confirm-buttons button:hover {
+    transform: translateY(-1px);
+}
+
+.history-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    min-height: 200px;
+    max-height: 400px;
+}
+
+.history-loading,
+.history-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: center;
+}
+
+.history-empty svg {
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+.history-empty h3 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.history-empty p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(255, 107, 53, 0.2);
+    border-top-color: var(--primary, #FF6B35);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* History Item */
+.history-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 14px 16px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.history-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.history-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.history-tokens {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.token-pair {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.token-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.token-amount {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+}
+
+.token-symbol {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.arrow-icon {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.history-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.chain-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.meta-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.timestamp {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.explorer-link {
+    color: rgba(255, 255, 255, 0.4);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.explorer-link:hover {
+    color: var(--primary, #FF6B35);
+    background: rgba(255, 107, 53, 0.1);
+}
+
+.provider-tag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.history-footer {
+    padding: 12px 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+}
+
+.history-count {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+    .history-modal {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        border-radius: 0;
+    }
+    
+    .token-amount {
+        font-size: 0.85rem;
+    }
+    
+    .token-symbol {
+        font-size: 0.75rem;
+    }
+}
