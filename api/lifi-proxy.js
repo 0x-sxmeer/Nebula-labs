@@ -21,10 +21,25 @@ function checkRateLimit(ip, limit = 100, windowMs = 15 * 60 * 1000) {
 }
 
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+  // Dynamic CORS: Allow requests from the configured origin OR any Vercel preview URL
+  const allowedOrigin = process.env.ALLOWED_ORIGINS || '*';
+  const requestOrigin = req.headers.origin || '';
+  
+  let originToAllow = allowedOrigin;
+  
+  // If request comes from a vercel.app preview and we have a strict policy, allow it for previews
+  if (allowedOrigin !== '*' && requestOrigin.endsWith('.vercel.app')) {
+      originToAllow = requestOrigin;
+  } else if (allowedOrigin !== '*' && requestOrigin === allowedOrigin) {
+      originToAllow = allowedOrigin;
+  }
+  
+  // If we want to be permissive during debugging:
+  // originToAllow = requestOrigin || '*'; 
+
+  res.setHeader('Access-Control-Allow-Origin', originToAllow);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-lifi-api-key');
   
   if (req.method === 'OPTIONS') {
     return res.status(200).end();

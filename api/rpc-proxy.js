@@ -18,7 +18,19 @@ function checkRateLimit(ip, limit = 200, windowMs = 15 * 60 * 1000) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGINS || '*');
+  // Dynamic CORS: Allow requests from the configured origin OR any Vercel preview URL
+  const allowedOrigin = process.env.ALLOWED_ORIGINS || '*';
+  const requestOrigin = req.headers.origin || '';
+  
+  let originToAllow = allowedOrigin;
+  
+  if (allowedOrigin !== '*' && requestOrigin.endsWith('.vercel.app')) {
+      originToAllow = requestOrigin;
+  } else if (allowedOrigin !== '*' && requestOrigin === allowedOrigin) {
+      originToAllow = allowedOrigin;
+  }
+
+  res.setHeader('Access-Control-Allow-Origin', originToAllow);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   
