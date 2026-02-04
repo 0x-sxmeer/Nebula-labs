@@ -23,13 +23,17 @@ export default defineConfig({
       // Defaults to `true`.
       protocolImports: true,
     }),
-    visualizer({
-        open: false,
-        gzipSize: true, 
-        brotliSize: true,
-    }),
+    // visualizer({
+    //     open: false,
+    //     gzipSize: true, 
+    //     brotliSize: true,
+    // }),
   ],
   build: {
     target: 'esnext',
+    sourcemap: false, // ✅ Save memory during build
+    rollupOptions: {
+        // Ensure no external dependencies are causing issues
+    }
   },
 })
