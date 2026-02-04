@@ -38,5 +38,10 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/lifi-proxy", "destination": "/api/lifi-proxy" },
+    { "source": "/rpc-proxy", "destination": "/api/rpc-proxy" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
