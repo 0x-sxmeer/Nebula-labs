@@ -42,13 +42,17 @@ export default async function handler(req, res) {
     const { chain, method, params } = req.body;
     
     // Get RPC URL for chain
+    const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const infuraKey = process.env.INFURA_API_KEY;
+
+    // Get RPC URL for chain (Fallback to public/Flashbots if no key)
     const rpcUrls = {
-      ethereum: process.env.ALCHEMY_ETH_RPC || 'https://rpc.flashbots.net',
-      polygon: process.env.ALCHEMY_POLYGON_RPC || 'https://polygon-rpc.com',
+      ethereum: process.env.ALCHEMY_ETH_RPC || (alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://rpc.flashbots.net'),
+      polygon: process.env.ALCHEMY_POLYGON_RPC || (alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://polygon-rpc.com'),
+      arbitrum: process.env.ALCHEMY_ARBITRUM_RPC || (alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://arb1.arbitrum.io/rpc'),
+      optimism: process.env.ALCHEMY_OPTIMISM_RPC || (alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.optimism.io'),
+      base: process.env.ALCHEMY_BASE_RPC || (alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.base.org'),
       bsc: 'https://bsc-dataseed.binance.org',
-      arbitrum: 'https://arb1.arbitrum.io/rpc',
-      optimism: 'https://mainnet.optimism.io',
-      base: 'https://mainnet.base.org',
       avalanche: 'https://api.avax.network/ext/bc/C/rpc'
     };
     
