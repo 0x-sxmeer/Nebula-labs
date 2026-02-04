@@ -17,25 +17,33 @@ class LiFiService {
   constructor() {
     this.backendUrl = import.meta.env.VITE_BACKEND_API_URL;
     
-    // ✅ ENFORCE backend in production
-    if (import.meta.env.PROD && !this.backendUrl) {
-      throw new Error(
-        '❌ Security Error: Backend API URL required in production.\n' +
-        'Set VITE_BACKEND_API_URL environment variable.'
-      );
-    }
+    this.backendUrl = import.meta.env.VITE_BACKEND_API_URL;
     
-    // ⚠️ Warn in development if no backend
-    if (import.meta.env.DEV && !this.backendUrl) {
-      console.warn(
-        '⚠️ WARNING: No backend configured.\n' +
-        'Using direct API calls (insecure for production).\n' +
-        'Set VITE_BACKEND_API_URL to use backend proxy.'
-      );
+    // ✅ PROD: Use relative path if no specific backend URL is set
+    // This allows the app to work on any Vercel preview URL automatically
+    if (import.meta.env.PROD) {
+        this.useBackend = true;
+        this.baseUrl = this.backendUrl 
+            ? `${this.backendUrl}/lifi-proxy` 
+            : '/lifi-proxy'; // Relative path uses Vercel rewrites
+            
+        console.log('🚀 LiFi Service initialized in Production Mode');
+        console.log('📡 Endpoint:', this.baseUrl);
     }
-    
-    this.useBackend = !!this.backendUrl;
-    this.baseUrl = this.backendUrl ? `${this.backendUrl}/lifi-proxy` : 'https://li.quest/v1';
+    // ⚠️ DEV: Warn if no backend
+    else if (import.meta.env.DEV) {
+        if (!this.backendUrl) {
+            console.warn(
+                '⚠️ WARNING: No backend configured.\n' +
+                'Using direct API calls (insecure for production).\n' +
+                'Set VITE_BACKEND_API_URL to use backend proxy.'
+            );
+            this.useBackend = false;
+        } else {
+            this.useBackend = true;
+        }
+        this.baseUrl = this.backendUrl ? `${this.backendUrl}/lifi-proxy` : 'https://li.quest/v1';
+    }
     
     // ❌ NEVER set API key in client
     this.apiKey = null;

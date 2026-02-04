@@ -31,9 +31,7 @@ export function validateEnvironment() {
   
   // Production requirements
   if (ENV.IS_PROD) {
-    if (!ENV.BACKEND_API_URL) {
-      errors.push('VITE_BACKEND_API_URL is required in production');
-    }
+    // Note: BACKEND_API_URL is optional now (defaults to relative path)
     
     if (!ENV.WALLETCONNECT_PROJECT_ID) {
       errors.push('VITE_WALLETCONNECT_PROJECT_ID is required');
