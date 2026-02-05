@@ -3,7 +3,7 @@
  * Fetches and validates user token balances before swaps
  */
 
-import { formatUnits, parseUnits } from 'ethers';
+import { formatUnits, parseUnits } from 'viem';
 
 /**
  * @typedef {Object} BalanceInfo

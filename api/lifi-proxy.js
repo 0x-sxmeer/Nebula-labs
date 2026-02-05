@@ -41,20 +41,25 @@ async function checkRateLimit(ip, limit = 100, windowMs = 900) {
 
 export default async function handler(req, res) {
   // Dynamic CORS: Allow requests from the configured origin OR any Vercel preview URL
-  const allowedOrigin = process.env.ALLOWED_ORIGINS || '*';
+  // Dynamic CORS: Lock down to configured origin in production
+  const allowedOrigin = process.env.ALLOWED_ORIGINS;
   const requestOrigin = req.headers.origin || '';
   
-  let originToAllow = allowedOrigin;
+  let originToAllow = ''; // Default to blocking
   
-  // If request comes from a vercel.app preview and we have a strict policy, allow it for previews
-  if (allowedOrigin !== '*' && requestOrigin.endsWith('.vercel.app')) {
-      originToAllow = requestOrigin;
-  } else if (allowedOrigin !== '*' && requestOrigin === allowedOrigin) {
-      originToAllow = allowedOrigin;
+  if (!allowedOrigin) {
+      // Dev mode or misconfiguration: Allow Vercel previews
+      if (process.env.NODE_ENV === 'development' || requestOrigin.endsWith('.vercel.app')) {
+          originToAllow = requestOrigin;
+      }
+  } else {
+      // Production: Strict check
+      const allowedList = allowedOrigin.split(',').map(o => o.trim());
+      if (allowedList.includes(requestOrigin)) {
+          originToAllow = requestOrigin;
+      }
   }
-  
-  // If we want to be permissive during debugging:
-  // originToAllow = requestOrigin || '*'; 
+ 
 
   res.setHeader('Access-Control-Allow-Origin', originToAllow);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

@@ -27,6 +27,7 @@ export default defineConfig({
     //     open: false,
     //     gzipSize: true, 
     //     brotliSize: true,
+    //     filename: 'stats.html'
     // }),
   ],
   build: {
@@ -34,12 +35,12 @@ export default defineConfig({
     sourcemap: false, // ✅ Save memory during build
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-wallet': ['wagmi', '@rainbow-me/rainbowkit'],
-          'vendor-lifi': ['@lifi/sdk'],
-          'vendor-ui': ['framer-motion', 'lucide-react'],
-        }
+      //   manualChunks: {
+      //     'vendor-react': ['react', 'react-dom'],
+      //     'vendor-wallet': ['wagmi', '@rainbow-me/rainbowkit'],
+      //     // 'vendor-lifi': ['@lifi/sdk'], // Removed
+      //     'vendor-ui': ['framer-motion', 'lucide-react'],
+      //   }
       }
     }
   },

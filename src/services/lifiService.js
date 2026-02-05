@@ -18,7 +18,7 @@ class LiFiService {
   constructor() {
     this.backendUrl = import.meta.env.VITE_BACKEND_API_URL;
     
-    this.backendUrl = import.meta.env.VITE_BACKEND_API_URL;
+
     
     // ✅ PROD: Use relative path if no specific backend URL is set
     // This allows the app to work on any Vercel preview URL automatically

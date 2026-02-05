@@ -28,15 +28,21 @@ async function checkRateLimit(ip, limit = 200, windowMs = 900) {
 
 export default async function handler(req, res) {
   // Dynamic CORS: Allow requests from the configured origin OR any Vercel preview URL
-  const allowedOrigin = process.env.ALLOWED_ORIGINS || '*';
+  // Dynamic CORS: Lock down to configured origin
+  const allowedOrigin = process.env.ALLOWED_ORIGINS;
   const requestOrigin = req.headers.origin || '';
   
-  let originToAllow = allowedOrigin;
+  let originToAllow = '';
   
-  if (allowedOrigin !== '*' && requestOrigin.endsWith('.vercel.app')) {
-      originToAllow = requestOrigin;
-  } else if (allowedOrigin !== '*' && requestOrigin === allowedOrigin) {
-      originToAllow = allowedOrigin;
+  if (!allowedOrigin) {
+      if (process.env.NODE_ENV === 'development' || requestOrigin.endsWith('.vercel.app')) {
+          originToAllow = requestOrigin;
+      }
+  } else {
+      const allowedList = allowedOrigin.split(',').map(o => o.trim());
+      if (allowedList.includes(requestOrigin)) {
+          originToAllow = requestOrigin;
+      }
   }
 
   res.setHeader('Access-Control-Allow-Origin', originToAllow);
@@ -59,6 +65,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
   
+  // Method Whitelist (Security)
+  // Only allow read-only methods to prevent abuse
+  const ALLOWED_METHODS = [
+      'eth_call',
+      'eth_estimateGas',
+      'eth_getBalance',
+      'eth_blockNumber',
+      'eth_gasPrice',
+      'eth_maxPriorityFeePerGas',
+      'eth_feeHistory',
+      'eth_chainId',
+      'net_version',
+      'eth_getTransactionCount',
+      'eth_getCode'
+  ];
+
+  const requestMethod = req.body.method;
+  if (!requestMethod || !ALLOWED_METHODS.includes(requestMethod)) {
+      console.warn(`⚠️ Blocked prohibited RPC method: ${requestMethod}`);
+      return res.status(403).json({ error: 'Method not allowed' });
+  }
+  
   try {
     // Support both body-based 'chain' (legacy) and query-param 'chain' (Wagmi standard)
     const chainParam = req.query.chain || req.body.chain;
@@ -71,26 +99,54 @@ export default async function handler(req, res) {
 
     // Get RPC URL for chain
     const alchemyKey = process.env.ALCHEMY_API_KEY;
+    const infuraKey = process.env.INFURA_API_KEY;
     
-    const rpcUrls = {
-      ethereum: alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://rpc.flashbots.net',
-      polygon: alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://polygon-rpc.com',
-      arbitrum: alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://arb1.arbitrum.io/rpc',
-      optimism: alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.optimism.io',
-      base: alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.base.org',
-      bsc: 'https://bsc-dataseed.binance.org',
-      avalanche: 'https://api.avax.network/ext/bc/C/rpc'
+    // Define providers with failover priority
+    const RPC_PROVIDERS = {
+      ethereum: [
+        alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+        infuraKey ? `https://mainnet.infura.io/v3/${infuraKey}` : null,
+        'https://rpc.ankr.com/eth',
+        'https://rpc.flashbots.net'
+      ],
+      polygon: [
+        alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+        infuraKey ? `https://polygon-mainnet.infura.io/v3/${infuraKey}` : null,
+        'https://polygon-rpc.com'
+      ],
+      arbitrum: [
+        alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+        infuraKey ? `https://arbitrum-mainnet.infura.io/v3/${infuraKey}` : null,
+        'https://arb1.arbitrum.io/rpc'
+      ],
+      optimism: [
+        alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+        infuraKey ? `https://optimism-mainnet.infura.io/v3/${infuraKey}` : null,
+        'https://mainnet.optimism.io'
+      ],
+      base: [
+        alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
+        'https://mainnet.base.org'
+      ],
+      bsc: [
+        'https://bsc-dataseed.binance.org',
+        'https://bsc-dataseed1.defibit.io',
+        'https://bsc-dataseed1.ninicoin.io'
+      ],
+      avalanche: [
+        'https://api.avax.network/ext/bc/C/rpc',
+        'https://rpc.ankr.com/avalanche'
+      ]
     };
     
-    // Map standard chain IDs to keys if needed, but our config sends names usually.
-    // Wagmi config will send ?chain=ethereum
+    // Filter out nulls (missing keys)
+    const providers = (RPC_PROVIDERS[chainParam] || []).filter(Boolean);
     
-    const rpcUrl = rpcUrls[chainParam];
-    if (!rpcUrl) {
-      return res.status(400).json({ error: `Unsupported chain: ${chainParam}` });
+    if (providers.length === 0) {
+      return res.status(400).json({ error: `Unsupported chain or no providers configured: ${chainParam}` });
     }
     
-    // Construct Payload: Support both my custom format and standard JSON-RPC
+    // Construct Payload
     const payload = req.body.jsonrpc ? req.body : {
       jsonrpc: '2.0',
       id: 1,
@@ -98,23 +154,51 @@ export default async function handler(req, res) {
       params: req.body.params
     };
 
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) {
-       console.error(`❌ RPC Error [${chainParam}]: ${response.status} ${response.statusText}`);
-       return res.status(response.status).json({ error: 'Provider Error', details: await response.text() });
-    }
+    // FAILOVER LOGIC
+    let lastError;
+    let success = false;
+    let data;
 
-    const data = await response.json();
+    for (const rpcUrl of providers) {
+        try {
+            const currentStart = Date.now();
+            const response = await fetch(rpcUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              // Short timeout for failover
+              signal: AbortSignal.timeout(5000) 
+            });
+            
+            if (!response.ok) {
+               throw new Error(`Status ${response.status}`);
+            }
+        
+            data = await response.json();
+            
+            // Success! Log if it wasn't the primary
+            if (rpcUrl !== providers[0]) {
+                console.log(`⚠️ Used fallback RPC for ${chainParam}: ${rpcUrl}`);
+            }
+            
+            // Log slow requests
+            const duration = Date.now() - start;
+            if (duration > 1000) {
+              console.log(`⚠️ Slow RPC [${chainParam}]: ${duration}ms`);
+            }
+            
+            success = true;
+            break; // Exit loop on success
+            
+        } catch (error) {
+            console.warn(`RPC Failed [${chainParam}] (${rpcUrl}): ${error.message}`);
+            lastError = error;
+            // Continue to next provider
+        }
+    }
     
-    // Log slow requests (>1s)
-    const duration = Date.now() - start;
-    if (duration > 1000) {
-      console.log(`⚠️ Slow RPC [${chainParam}]: ${duration}ms`);
+    if (!success) {
+        throw new Error(`All providers failed. Last error: ${lastError?.message}`);
     }
 
     res.status(200).json(data);

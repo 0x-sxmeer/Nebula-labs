@@ -45,6 +45,11 @@ export const useSwapExecution = () => {
     checkBalance,
     // useMevProtection, // Removed as service is deprecated
   }) => {
+    // 0. ✅ Sanction Screening (Placeholder)
+    // TODO: Integrate TRM Labs or Chainalysis API here
+    // const isSanctioned = await checkSanctions(walletAddress);
+    // if (isSanctioned) throw new Error('Compliance Check Failed: Address is blocked');
+    
     // 1. Basic validation
     if (!selectedRoute) {
       throw new Error('No route selected');

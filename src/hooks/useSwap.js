@@ -1,12 +1,7 @@
-/**
- * Production-Grade useSwap Hook - REFACTORED
- * ✅ Fixed: Race conditions, gas calculation, token preservation, abort controllers
- */
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useBalance, useReadContract, useConfig, useWriteContract } from 'wagmi';
 import { simulateContract } from '@wagmi/core';
-import { parseUnits, formatUnits } from 'ethers';
+import { parseUnits, formatUnits } from 'viem';
 import { lifiService } from '../services/lifiService';
 import { LIFI_CONFIG, NATIVE_TOKEN_ADDRESS, LARGE_CHAIN_ID_THRESHOLD } from '../config/lifi.config';
 import { config } from '../config/wagmi.config';
@@ -289,35 +284,19 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
           try {
             estimatedGasInWei = parseUnits(gasAmount, 18); // Gas is in native token (18 decimals)
           } catch (e) {
-            logger.warn('Failed to parse gas from route, using fallback');
-             // Fallback: Reserve conservative amount
-            const gasReserveByChain = {
-                1: '0.01',    // Ethereum
-                137: '0.1',   // Polygon
-                56: '0.005',  // BSC
-                42161: '0.001', // Arbitrum
-                10: '0.001',  // Optimism
-                8453: '0.001', // Base
-                43114: '0.01', // Avalanche
-            };
-            const gasReserve = gasReserveByChain[fromChain.id] || '0.01';
-            estimatedGasInWei = parseUnits(gasReserve, 18); 
+            logger.warn('Failed to parse gas from route, using fallback', e);
+             // Fallback: Dynamic reservation
+            const standardGasLimit = 300000n; // Standard swap gas limit
+            const currentGasPrice = BigInt(gasPrice?.standard || 20000000000); // Default 20 gwei
+            estimatedGasInWei = currentGasPrice * standardGasLimit;
           }
         } else {
-          // Fallback: Reserve conservative amount
-          // Different chains have different gas costs
-          const gasReserveByChain = {
-            1: '0.01',    // Ethereum: 0.01 ETH (~$30)
-            137: '0.1',   // Polygon: 0.1 MATIC (~$0.10)
-            56: '0.005',  // BSC: 0.005 BNB (~$1.50)
-            42161: '0.001', // Arbitrum: 0.001 ETH (~$3)
-            10: '0.001',  // Optimism: 0.001 ETH (~$3)
-            8453: '0.001', // Base: 0.001 ETH (~$3)
-            43114: '0.01', // Avalanche: 0.01 AVAX (~$0.40)
-          };
-          
-          const gasReserve = gasReserveByChain[fromChain.id] || '0.01';
-          estimatedGasInWei = parseUnits(gasReserve, 18);
+            // Fallback: Dynamic reservation using fetched gas price
+            // Min Reserve = CurrentGasPrice * 300000 * 1.5 (buffer)
+            const standardGasLimit = 300000n; 
+            const currentGasPrice = BigInt(gasPrice?.standard || 20000000000); // Default 20 gwei
+            // 1.5 buffer applied here relative to base cost
+            estimatedGasInWei = (currentGasPrice * standardGasLimit * 150n) / 100n;
         }
         
         // Add 20% buffer for gas price volatility
@@ -576,8 +555,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
           suggestions: suggestions.length > 0 ? suggestions : undefined,
           recoverable: true,
         });
-        setRoutes([]);
-        setSelectedRoute(null);
+        // UX: Don't wipe routes on error to prevent flashing
+        // setRoutes([]);
+        // setSelectedRoute(null);
       }
     } finally {
       setLoading(false);
