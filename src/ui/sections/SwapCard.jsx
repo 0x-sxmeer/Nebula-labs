@@ -522,17 +522,11 @@ const SwapCard = () => {
         setIsExecuting(isExecuting);
     }, [isExecuting, setIsExecuting]);
 
-    // Watch for Transaction Hash to start tracking and save to history
+    // Watch for Transaction Hash to save to history
     useEffect(() => {
         const hashToTrack = activeHash;
         if (hashToTrack && selectedRoute && effectiveStatus === 'IDLE') {
-            logger.log('🚀 Starting transaction tracking for:', hashToTrack);
-            startTracking({
-                txHash: hashToTrack,
-                bridge: selectedRoute.steps?.[0]?.tool || selectedRoute.tool || 'unknown',
-                fromChain: fromChain.id,
-                toChain: toChain.id
-            });
+            logger.log('🚀 Transaction detected, saving to history:', hashToTrack);
             
             // Save to history
             saveSwap({
@@ -550,7 +544,7 @@ const SwapCard = () => {
                 outputUSD: selectedRoute?.outputUSD
             });
         }
-    }, [activeHash, selectedRoute, fromChain, toChain, startTracking, effectiveStatus, saveSwap, fromToken, toToken, fromAmount, getExplorerUrl]);
+    }, [activeHash, selectedRoute, fromChain, toChain, effectiveStatus, saveSwap, fromToken, toToken, fromAmount, getExplorerUrl]);
 
     // Update history when transaction completes or fails
     useEffect(() => {
