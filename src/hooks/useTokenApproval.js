@@ -162,11 +162,29 @@ export const useTokenApproval = ({
     needsApproval
   ]);
 
-  // Refetch on confirmation
+  // Refetch on confirmation (with polling for indexing delay)
   useEffect(() => {
     if (isApprovalConfirmed) {
-      logger.log('✅ Approval confirmed, refetching allowance...');
+      logger.log('✅ Approval confirmed, starting aggressive refetch...');
+      
+      // Immediate refetch
       refetchAllowance();
+      
+      // Poll every 2 seconds for 10 seconds to catch indexing updates
+      const interval = setInterval(() => {
+        logger.log('🔄 Polling allowance update...');
+        refetchAllowance();
+      }, 2000);
+      
+      // Stop polling after 12 seconds
+      const timeout = setTimeout(() => {
+        clearInterval(interval);
+      }, 12000);
+      
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
     }
   }, [isApprovalConfirmed, refetchAllowance]);
 
