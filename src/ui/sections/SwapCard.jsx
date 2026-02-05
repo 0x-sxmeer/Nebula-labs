@@ -84,12 +84,16 @@ const SwapCard = () => {
     const [showRouteDetails, setShowRouteDetails] = useState(true);
     const [showHistory, setShowHistory] = useState(false);
     
+
     const [acceptedTerms, setAcceptedTerms] = useState(false);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [useInfiniteApproval, setUseInfiniteApproval] = useState(false);
 
 
 
     const [gasSpeed, setGasSpeed] = useState('standard');
     const [customSlippage, setCustomSlippage] = useState('0.5');
+
 
     const [useAutoSlippage, setUseAutoSlippage] = useState(false);
     
@@ -287,7 +291,8 @@ const SwapCard = () => {
     };
 
     // Issue #9: Comprehensive pre-transaction validation
-    const handleSwap = async () => {
+    const handleConfirmSwap = async () => {
+        setShowReviewModal(false);
         if (!selectedRoute) {
             setExecutionError({
                 title: 'No Route Selected',
@@ -394,6 +399,30 @@ const SwapCard = () => {
         } finally {
             setIsExecuting(false);
         }
+    };
+
+    const handleSwap = () => {
+        // 1. Basic Validation
+        if (!selectedRoute) return;
+        
+        const amountValidation = validateAmount(fromAmount, fromToken?.decimals);
+        if (!amountValidation.valid) {
+             setExecutionError({ title: 'Invalid Amount', message: amountValidation.error, recoverable: true });
+             return;
+        }
+
+        if (customToAddress && !isValidAddress(customToAddress)) {
+             setExecutionError({ title: 'Invalid Recipient', message: 'Please enter a valid wallet address', recoverable: true });
+             return;
+        }
+
+        if (!hasSufficientBalance) {
+             setExecutionError({ title: 'Insufficient Balance', message: 'Insufficient balance for swap', recoverable: true });
+             return;
+        }
+
+        // 2. Open Review Modal
+        setShowReviewModal(true);
     };
     
     const isExecuting = isSending || isConfirming || ((status || 'IDLE') !== 'IDLE' && status !== 'DONE' && status !== 'FAILED');
@@ -922,28 +951,27 @@ const SwapCard = () => {
                                 </div>
                             )}
 
-                            {/* Terms of Service Checkbox */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '0.8rem', color: '#aaa', paddingLeft: '4px' }}>
-                                <div 
-                                    onClick={() => setAcceptedTerms(!acceptedTerms)}
-                                    style={{
-                                        width: '16px', height: '16px', borderRadius: '4px', border: '1px solid #555',
-                                        background: acceptedTerms ? 'var(--primary)' : 'transparent',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {acceptedTerms && <CheckCircle size={12} color="white" />}
-                                </div>
-                                <span>I agree to the <a href="/terms" target="_blank" style={{color:'var(--primary)', textDecoration:'none'}}>Terms of Service</a></span>
-                            </div>
 
                             {/* Swap/Approve Button */}
+                            {needsApproval && !isApproved && selectedRoute && (
+                                <div style={{marginBottom: '8px', display:'flex', alignItems:'center', gap:'8px', fontSize:'0.75rem', color:'#aaa', justifyContent:'center'}}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={useInfiniteApproval}
+                                        onChange={(e) => setUseInfiniteApproval(e.target.checked)}
+                                        id="inf-approval"
+                                        style={{cursor:'pointer'}}
+                                    />
+                                    <label htmlFor="inf-approval" style={{cursor:'pointer'}}>Enable Infinite Approval (Save Gas)</label>
+                                </div>
+                            )}
+
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
                                     disabled={!isConnected || isApprovalPending || isCheckingApproval}
-                                    onClick={() => handleApprove(false)}
+                                    disabled={!isConnected || isApprovalPending || isCheckingApproval}
+                                    onClick={() => handleApprove(useInfiniteApproval)} 
                                     style={{
                                         background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
                                         boxShadow: '0 4px 20px rgba(255, 193, 7, 0.3)'
@@ -960,9 +988,8 @@ const SwapCard = () => {
                             ) : (
                                 <button 
                                     className="swap-button"
-                                    disabled={!isConnected || loading || isExecuting || !hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved) || !acceptedTerms}
+                                    disabled={!isConnected || loading || isExecuting || !hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved)}
                                     onClick={handleSwap}
-                                    style={{ opacity: !acceptedTerms ? 0.7 : 1 }}
                                 >
                                     {loading ? <RefreshCw className="spin" /> : 
                                      isExecuting ? <RefreshCw className="spin" /> :
@@ -983,32 +1010,7 @@ const SwapCard = () => {
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                     style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
                                 >
-                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <AlertCircle size={16} />
-                                        <span>{executionError?.message || executionError || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}</span>
-                                    </div>
-                                    
-                                    {(executionError?.recoverable || error) && (
-                                        <button 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if(executionError) setExecutionError(null);
-                                                refreshRoutes(false); 
-                                            }}
-                                            style={{ 
-                                                background: 'rgba(255,255,255,0.1)', 
-                                                border: '1px solid rgba(255,255,255,0.2)', 
-                                                color: 'white', 
-                                                padding: '4px 8px', 
-                                                borderRadius: '4px', 
-                                                cursor: 'pointer', 
-                                                fontSize: '0.75rem',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            Retry
-                                        </button>
-                                    )}
+                                    <AlertCircle size={16} />{executionError || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}
                                 </motion.div>
                             )}
 
@@ -1250,6 +1252,73 @@ const SwapCard = () => {
 
             </div>
             </GlowingCard>
+
+            {/* REVIEW MODAL */}
+            {showReviewModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)',
+                    zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        style={{
+                            background: '#1a1b26', width: '90%', maxWidth: '400px',
+                            borderRadius: '16px', padding: '24px', border: '1px solid #333',
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                        }}
+                    >
+                        <h3 style={{margin: '0 0 16px', fontSize: '1.2rem'}}>Review Swap</h3>
+                        
+                        <div style={{background:'rgba(0,0,0,0.2)', padding:'12px', borderRadius:'12px', marginBottom:'16px'}}>
+                             <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
+                                <span style={{color:'#888'}}>Pay</span>
+                                <span style={{fontWeight:600}}>{fromAmount} {fromToken?.symbol}</span>
+                             </div>
+                             <div style={{display:'flex', justifyContent:'space-between'}}>
+                                <span style={{color:'#888'}}>Receive</span>
+                                <span style={{fontWeight:600, color:'var(--success)'}}>{selectedRoute?.outputAmountFormatted} {toToken?.symbol}</span>
+                             </div>
+                        </div>
+
+                        {/* WARNINGS */}
+                        {parseFloat(selectedRoute?.inputUSD || '0') > 10000 && (
+                            <div style={{
+                                background: 'rgba(255,193,7,0.15)', border: '1px solid #ffc107',
+                                color: '#ffc107', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '16px',
+                                display: 'flex', gap: '8px', alignItems: 'start'
+                            }}>
+                                <AlertTriangle size={16} />
+                                <div>
+                                    <strong>High Value Swap</strong><br/>
+                                    Please double check all details.
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{display:'flex', gap:'12px', marginTop:'24px'}}>
+                            <button 
+                                onClick={() => setShowReviewModal(false)}
+                                style={{flex:1, padding:'12px', borderRadius:'12px', background:'transparent', border:'1px solid #444', color:'white', cursor:'pointer'}}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleConfirmSwap}
+                                style={{
+                                    flex:1, padding:'12px', borderRadius:'12px', cursor:'pointer', border:'none',
+                                    background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent-color) 100%)',
+                                    color: 'white', fontWeight: 600
+                                }}
+                            >
+                                Confirm Swap
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
 
             {/* Swap History Modal */}
             <SwapHistory 

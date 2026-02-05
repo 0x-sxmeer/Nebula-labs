@@ -107,35 +107,48 @@ export default async function handler(req, res) {
         alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
         infuraKey ? `https://mainnet.infura.io/v3/${infuraKey}` : null,
         'https://rpc.ankr.com/eth',
-        'https://rpc.flashbots.net'
+        'https://eth.drpc.org',
+        'https://1rpc.io/eth'
       ],
       polygon: [
         alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
         infuraKey ? `https://polygon-mainnet.infura.io/v3/${infuraKey}` : null,
-        'https://polygon-rpc.com'
+        'https://polygon-rpc.com',
+        'https://polygon.drpc.org',
+        'https://1rpc.io/matic'
       ],
       arbitrum: [
         alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
         infuraKey ? `https://arbitrum-mainnet.infura.io/v3/${infuraKey}` : null,
-        'https://arb1.arbitrum.io/rpc'
+        'https://arb1.arbitrum.io/rpc',
+        'https://arbitrum.drpc.org',
+        'https://1rpc.io/arb'
       ],
       optimism: [
         alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
         infuraKey ? `https://optimism-mainnet.infura.io/v3/${infuraKey}` : null,
-        'https://mainnet.optimism.io'
+        'https://mainnet.optimism.io',
+        'https://optimism.drpc.org',
+        'https://1rpc.io/op'
       ],
       base: [
         alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : null,
-        'https://mainnet.base.org'
+        'https://mainnet.base.org',
+        'https://base.drpc.org',
+        'https://1rpc.io/base'
       ],
       bsc: [
         'https://bsc-dataseed.binance.org',
         'https://bsc-dataseed1.defibit.io',
-        'https://bsc-dataseed1.ninicoin.io'
+        'https://bsc-dataseed1.ninicoin.io',
+        'https://bsc.drpc.org',
+        'https://1rpc.io/bnb'
       ],
       avalanche: [
         'https://api.avax.network/ext/bc/C/rpc',
-        'https://rpc.ankr.com/avalanche'
+        'https://rpc.ankr.com/avalanche',
+        'https://avalanche.drpc.org',
+        'https://1rpc.io/avax'
       ]
     };
     

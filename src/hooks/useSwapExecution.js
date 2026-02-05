@@ -1,5 +1,5 @@
 
-import { useSendTransaction, useEstimateFeesPerGas } from 'wagmi';
+import { useSendTransaction, useEstimateFeesPerGas, useSwitchChain, useAccount } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
 import { lifiService } from '../services/lifiService';
 import { logger } from '../utils/logger';
@@ -14,6 +14,8 @@ import { analytics } from '../services/analyticsService';
 export const useSwapExecution = () => {
   const { sendTransactionAsync } = useSendTransaction();
   const { data: feeData } = useEstimateFeesPerGas();
+  const { switchChainAsync } = useSwitchChain();
+  const { chain } = useAccount();
   
   /**
    * Check if router address is approved (whitelisted)
@@ -61,6 +63,17 @@ export const useSwapExecution = () => {
 
     if (!hasSufficientBalance) {
       throw new Error('Insufficient balance');
+    }
+
+    // 1b. ✅ Chain Enforcement
+    const routeChainId = fromToken.chainId;
+    if (chain?.id !== routeChainId) {
+        logger.log(`⚠️ Chain mismatch. Switching to ${routeChainId}...`);
+        try {
+            await switchChainAsync({ chainId: routeChainId });
+        } catch (error) {
+            throw new Error('Chain switch failed. Please manually switch network.');
+        }
     }
     
     // 2. ✅ Validate route age
