@@ -1016,12 +1016,28 @@ const SwapCard = () => {
                                 </div>
                             )}
 
+                            {/* Terms of Service Checkbox */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '0.8rem', color: '#aaa', paddingLeft: '4px' }}>
+                                <div 
+                                    onClick={() => setAcceptedTerms(!acceptedTerms)}
+                                    style={{
+                                        width: '16px', height: '16px', borderRadius: '4px', border: '1px solid #555',
+                                        background: acceptedTerms ? 'var(--primary)' : 'transparent',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {acceptedTerms && <CheckCircle size={12} color="white" />}
+                                </div>
+                                <span>I agree to the <a href="/terms" target="_blank" style={{color:'var(--primary)', textDecoration:'none'}}>Terms of Service</a></span>
+                            </div>
+
                             {/* Swap/Approve Button */}
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
                                     disabled={!isConnected || isApprovalPending || isCheckingApproval}
-                                    onClick={() => handleApprove(false)} // Issue #8: Use exact amount (safer)
+                                    onClick={() => handleApprove(false)}
                                     style={{
                                         background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
                                         boxShadow: '0 4px 20px rgba(255, 193, 7, 0.3)'
@@ -1038,8 +1054,9 @@ const SwapCard = () => {
                             ) : (
                                 <button 
                                     className="swap-button"
-                                    disabled={!isConnected || loading || isExecuting || !hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved)}
+                                    disabled={!isConnected || loading || isExecuting || !hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved) || !acceptedTerms}
                                     onClick={handleSwap}
+                                    style={{ opacity: !acceptedTerms ? 0.7 : 1 }}
                                 >
                                     {loading ? <RefreshCw className="spin" /> : 
                                      isExecuting ? <RefreshCw className="spin" /> :
@@ -1060,7 +1077,32 @@ const SwapCard = () => {
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                     style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
                                 >
-                                    <AlertCircle size={16} />{executionError || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}
+                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle size={16} />
+                                        <span>{executionError?.message || executionError || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}</span>
+                                    </div>
+                                    
+                                    {(executionError?.recoverable || error) && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if(executionError) setExecutionError(null);
+                                                refreshRoutes(false); 
+                                            }}
+                                            style={{ 
+                                                background: 'rgba(255,255,255,0.1)', 
+                                                border: '1px solid rgba(255,255,255,0.2)', 
+                                                color: 'white', 
+                                                padding: '4px 8px', 
+                                                borderRadius: '4px', 
+                                                cursor: 'pointer', 
+                                                fontSize: '0.75rem',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            Retry
+                                        </button>
+                                    )}
                                 </motion.div>
                             )}
 
