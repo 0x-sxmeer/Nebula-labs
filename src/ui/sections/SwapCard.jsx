@@ -171,7 +171,8 @@ const SwapCard = () => {
         setDisabledBridges, setDisabledExchanges,
         autoRefresh, setAutoRefresh,
         // Final missing variables
-        switchTokens, customToAddress, setCustomToAddress, setIsExecuting
+        switchTokens, customToAddress, setCustomToAddress, setIsExecuting,
+        gasPrice // Added missing gasPrice
     } = useSwap(walletAddress); // Initialize useSwap hook
 
     // Initialize Swap History
