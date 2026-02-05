@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useBalance, useReadContract, useConfig, useWriteContract } from 'wagmi';
 import { simulateContract } from '@wagmi/core';
 import { parseUnits, formatUnits } from 'viem';
