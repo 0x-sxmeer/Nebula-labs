@@ -51,47 +51,70 @@ export default async function handler(req, res) {
   }
   
   try {
-    const { chain, method, params } = req.body;
+    // Support both body-based 'chain' (legacy) and query-param 'chain' (Wagmi standard)
+    const chainParam = req.query.chain || req.body.chain;
     
+    if (!chainParam) {
+      return res.status(400).json({ error: 'Missing chain parameter' });
+    }
+
+    const start = Date.now();
+
     // Get RPC URL for chain
     const alchemyKey = process.env.ALCHEMY_API_KEY;
-    const infuraKey = process.env.INFURA_API_KEY;
-
-    // Get RPC URL for chain (Fallback to public/Flashbots if no key)
+    
     const rpcUrls = {
-      ethereum: process.env.ALCHEMY_ETH_RPC || (alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://rpc.flashbots.net'),
-      polygon: process.env.ALCHEMY_POLYGON_RPC || (alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://polygon-rpc.com'),
-      arbitrum: process.env.ALCHEMY_ARBITRUM_RPC || (alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://arb1.arbitrum.io/rpc'),
-      optimism: process.env.ALCHEMY_OPTIMISM_RPC || (alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.optimism.io'),
-      base: process.env.ALCHEMY_BASE_RPC || (alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.base.org'),
+      ethereum: alchemyKey ? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://rpc.flashbots.net',
+      polygon: alchemyKey ? `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://polygon-rpc.com',
+      arbitrum: alchemyKey ? `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://arb1.arbitrum.io/rpc',
+      optimism: alchemyKey ? `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.optimism.io',
+      base: alchemyKey ? `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}` : 'https://mainnet.base.org',
       bsc: 'https://bsc-dataseed.binance.org',
       avalanche: 'https://api.avax.network/ext/bc/C/rpc'
     };
     
-    const rpcUrl = rpcUrls[chain];
+    // Map standard chain IDs to keys if needed, but our config sends names usually.
+    // Wagmi config will send ?chain=ethereum
+    
+    const rpcUrl = rpcUrls[chainParam];
     if (!rpcUrl) {
-      return res.status(400).json({ error: 'Unsupported chain' });
+      return res.status(400).json({ error: `Unsupported chain: ${chainParam}` });
     }
     
+    // Construct Payload: Support both my custom format and standard JSON-RPC
+    const payload = req.body.jsonrpc ? req.body : {
+      jsonrpc: '2.0',
+      id: 1,
+      method: req.body.method,
+      params: req.body.params
+    };
+
     const response = await fetch(rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method,
-        params
-      })
+      body: JSON.stringify(payload)
     });
     
+    if (!response.ok) {
+       console.error(`❌ RPC Error [${chainParam}]: ${response.status} ${response.statusText}`);
+       return res.status(response.status).json({ error: 'Provider Error', details: await response.text() });
+    }
+
     const data = await response.json();
+    
+    // Log slow requests (>1s)
+    const duration = Date.now() - start;
+    if (duration > 1000) {
+      console.log(`⚠️ Slow RPC [${chainParam}]: ${duration}ms`);
+    }
+
     res.status(200).json(data);
     
   } catch (error) {
     console.error('❌ RPC proxy error:', error);
     res.status(500).json({ 
-      error: 'RPC request failed',
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: 'RPC request failed', 
+      message: error.message 
     });
   }
 }

@@ -33,28 +33,13 @@ export const config = createConfig({
     ...(projectId ? [walletConnect({ projectId })] : []),
   ],
   transports: {
-    [mainnet.id]: http(
-      import.meta.env.VITE_ETHEREUM_RPC || "https://rpc.flashbots.net",
-    ),
-    [polygon.id]: http(
-      import.meta.env.VITE_POLYGON_RPC || "https://polygon-rpc.com",
-    ),
-    [bsc.id]: http(
-      import.meta.env.VITE_BSC_RPC || "https://bsc-dataseed.binance.org",
-    ),
-    [arbitrum.id]: http(
-      import.meta.env.VITE_ARBITRUM_RPC || "https://arb1.arbitrum.io/rpc",
-    ),
-    [optimism.id]: http(
-      import.meta.env.VITE_OPTIMISM_RPC || "https://mainnet.optimism.io",
-    ),
-    [base.id]: http(
-      import.meta.env.VITE_BASE_RPC || "https://mainnet.base.org",
-    ),
-    [avalanche.id]: http(
-      import.meta.env.VITE_AVALANCHE_RPC ||
-        "https://api.avax.network/ext/bc/C/rpc",
-    ),
+    [mainnet.id]: http('/api/rpc-proxy?chain=ethereum'),
+    [polygon.id]: http('/api/rpc-proxy?chain=polygon'),
+    [bsc.id]: http('/api/rpc-proxy?chain=bsc'),
+    [arbitrum.id]: http('/api/rpc-proxy?chain=arbitrum'),
+    [optimism.id]: http('/api/rpc-proxy?chain=optimism'),
+    [base.id]: http('/api/rpc-proxy?chain=base'),
+    [avalanche.id]: http('/api/rpc-proxy?chain=avalanche'),
   },
   storage: null,
 });
