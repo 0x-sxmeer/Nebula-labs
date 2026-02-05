@@ -95,16 +95,8 @@ export const useSwapExecution = () => {
     const inputUSD = parseFloat(selectedRoute.inputUSD || selectedRoute.fromAmountUSD || '0');
     if (inputUSD > 10000) {
       const outputAmount = selectedRoute.outputAmountFormatted || 'Unknown';
-      const confirmed = window.confirm(
-        `⚠️ LARGE SWAP DETECTED\n\n` +
-        `Value: $${inputUSD.toLocaleString()}\n` +
-        `Receive: ~${outputAmount} ${toToken?.symbol}\n\n` +
-        `Continue?`
-      );
-      
-      if (!confirmed) {
-        throw new Error('Swap cancelled by user');
-      }
+      /* Review Modal handles this */
+      logger.warn(`⚠️ Large swap: $${inputUSD}`);
     }
 
     // 5. ✅ Get fresh step transaction
@@ -127,26 +119,17 @@ export const useSwapExecution = () => {
     const routerCheck = isApprovedRouter(txRequest.to, chainId);
 
     if (!routerCheck.approved) {
-        const confirmed = window.confirm(
-            `⚠️ SECURITY WARNING\n\n` +
-            `Destination address is not in our verified list.\n` +
-            `Address: ${txRequest.to}\n\n` +
-            `Proceed anyway?`
-        );
-        if (!confirmed) throw new Error('Swap cancelled: Unknown router');
-        
-        analytics.track('Unknown Router Accepted', { address: txRequest.to, chain: chainId });
+        // Monitor only
+        logger.warn(`SECURITY WARNING: Destination ${txRequest.to} not in verified list.`);
+        analytics.track('Unknown Router Detected', { address: txRequest.to, chain: chainId });
     }
 
     // 7. ✅ Gas Limit Checks
     if (txRequest.gasLimit) {
         const gasLimit = BigInt(txRequest.gasLimit);
         if (gasLimit > GAS_LIMITS.MAX_WARNING) {
-            const confirmed = window.confirm(
-                `🚨 EXTREMELY HIGH GAS LIMIT: ${gasLimit.toString()}\n\n` +
-                `This is suspicious. Continue?`
-            );
-            if (!confirmed) throw new Error('Swap cancelled: High gas limit');
+            // Monitor only
+            logger.warn(`🚨 High Gas Limit: ${gasLimit}`);
         }
     }
     

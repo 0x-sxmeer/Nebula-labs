@@ -98,6 +98,16 @@ const SwapCard = () => {
     const [useAutoSlippage, setUseAutoSlippage] = useState(false);
     
     // Token Approval Hook
+    const {
+        fromToken, toToken, fromChain, toChain, fromAmount,
+        routes, selectedRoute, loading, error,
+        setFromToken, setToToken, setFromChain, setToChain, setFromAmount,
+        setRoutes, setSelectedRoute, setError,
+        fetchRoutes, refreshRoutes,
+        slippage, setSlippage,
+        isRefreshing, timeUntilRefresh
+    } = useSwap(walletAddress); // Initialize useSwap hook
+
     // Get the spender address from the selected route (LiFi router)
     // Dry Run Fix: Robust spender resolution
     const spenderAddress = selectedRoute?.steps?.[0]?.estimate?.approvalAddress || 
