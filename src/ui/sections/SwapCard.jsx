@@ -102,7 +102,7 @@ const SwapCard = () => {
         fromToken, toToken, fromChain, toChain, fromAmount,
         routes, selectedRoute, loading, error,
         setFromToken, setToToken, setFromChain, setToChain, setFromAmount,
-        setRoutes, setSelectedRoute, setError,
+        setSelectedRoute, 
         fetchRoutes, refreshRoutes,
         slippage, setSlippage,
         isRefreshing, timeUntilRefresh
@@ -1020,7 +1020,7 @@ const SwapCard = () => {
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                     style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
                                 >
-                                    <AlertCircle size={16} />{executionError || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}
+                                    <AlertCircle size={16} />{executionError?.message || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}
                                 </motion.div>
                             )}
 
