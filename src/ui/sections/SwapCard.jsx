@@ -979,7 +979,6 @@ const SwapCard = () => {
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
-                                    className="swap-button approve-button"
                                     disabled={!isConnected || isApprovalPending || isCheckingApproval}
                                     onClick={() => handleApprove(useInfiniteApproval)} 
                                     style={{
