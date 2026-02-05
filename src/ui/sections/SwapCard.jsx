@@ -110,7 +110,9 @@ const SwapCard = () => {
         checkBalance, loadingBalance, balance, hasSufficientBalance,
         availableBridges, availableExchanges, disabledBridges, disabledExchanges,
         setDisabledBridges, setDisabledExchanges,
-        autoRefresh, setAutoRefresh
+        autoRefresh, setAutoRefresh,
+        // Final missing variables
+        switchTokens, customToAddress, setCustomToAddress, setIsExecuting
     } = useSwap(walletAddress); // Initialize useSwap hook
 
     // Initialize Swap History
