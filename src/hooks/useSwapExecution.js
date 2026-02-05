@@ -25,6 +25,7 @@ export const useSwapExecution = () => {
     fromAmount,
     hasSufficientBalance,
     checkBalance,
+    useMevProtection, // ✅ Received from component
   }) => {
     // 1. Basic validation
     if (!selectedRoute) {
