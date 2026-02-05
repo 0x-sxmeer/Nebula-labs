@@ -33,14 +33,14 @@ export default defineConfig({
   build: {
     target: 'esnext',
     sourcemap: false, // ✅ Save memory during build
+    chunkSizeWarningLimit: 1000, // Increase limit to 1MB
     rollupOptions: {
       output: {
-      //   manualChunks: {
-      //     'vendor-react': ['react', 'react-dom'],
-      //     'vendor-wallet': ['wagmi', '@rainbow-me/rainbowkit'],
-      //     // 'vendor-lifi': ['@lifi/sdk'], // Removed
-      //     'vendor-ui': ['framer-motion', 'lucide-react'],
-      //   }
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-wagmi': ['wagmi', 'viem', '@rainbow-me/rainbowkit'],
+          'vendor-ui': ['framer-motion', 'lucide-react', 'styled-components'], 
+        }
       }
     }
   },

@@ -12,6 +12,14 @@ const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 
 function App() {
+  // ✅ NEW: Handle wallet disconnection cleanup
+  // Note: We need to use useAccount/useDisconnect here, but App is outside WagmiProvider?
+  // Wait, index.js wraps App in WagmiProvider. So this is safe.
+  /*
+     However, standard practice is to do this inside a child component or use a hook.
+     Let's adding a simple effect here might require importing useAccount.
+  */
+  
   return (
     <ErrorBoundary name="Application" message="The application encountered an unexpected error.">
       <Router>
@@ -24,11 +32,31 @@ function App() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
             </Routes>
+            <WalletCleanup />
           </div>
         </Suspense>
       </Router>
     </ErrorBoundary>
   );
+}
+
+// Helper component to use hooks inside Provider
+import { useAccount } from 'wagmi';
+import { useEffect } from 'react';
+
+function WalletCleanup() {
+    const { isConnected } = useAccount();
+
+    useEffect(() => {
+        if (!isConnected) {
+            // Clear sensitive local storage
+            localStorage.removeItem('lifi_cache_v1');
+            localStorage.removeItem('swap_history');
+            console.log('🧹 Wallet disconnected - cache cleared');
+        }
+    }, [isConnected]);
+
+    return null;
 }
 
 export default App;

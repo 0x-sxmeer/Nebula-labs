@@ -137,7 +137,7 @@ export const checkSufficientBalanceWithGas = async ({
       };
 
       // Add warning if balance is very close to minimum
-      if (sufficient && tokenBalance.value < totalRequired + (MIN_GAS_RESERVE[chainId] || 0n)) {
+      if (sufficient && tokenBalance.value < totalRequired + MIN_GAS_RESERVE[chainId]) {
         result.warnings.push({
           level: 'warning',
           message: `Low ${tokenBalance.symbol} balance. Consider leaving more for future transactions.`,
@@ -348,20 +348,6 @@ export const formatBalanceCheckForUI = (result) => {
  * (Maps to new function)
  */
 export const checkSufficientBalance = async (params) => {
-    // Adapter for legacy calls that passed 'userBalance', 'swapAmount' etc strings
-    if (params.userBalance !== undefined) {
-         // Legacy mode call - we can't fully support it without wallet address and chain ID which might be missing
-         // But let's try to map what we can, or just return the old logic if we can't upgrade
-         
-         const balance = BigInt(params.userBalance || '0');
-         const amount = BigInt(params.swapAmount || '0');
-         // We'll perform basic math check here as fallback
-         if (balance < amount) {
-             return { isSufficient: false, message: 'Insufficient balance' };
-         }
-         return { isSufficient: true, message: 'Sufficient balance' };
-    }
-
   return checkSufficientBalanceWithGas({
     ...params,
     estimatedGas: '0', // No gas check in legacy function

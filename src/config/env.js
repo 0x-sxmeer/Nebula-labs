@@ -1,61 +1,48 @@
 /**
  * Environment Variable Validation
- * Ensures all required env vars are present at startup
+ * ensuring critical keys exist and secrets are not leaked to the client bundle.
  */
 
-import { logger } from '../utils/logger';
-
-export const ENV = {
-  // Required
-  BACKEND_API_URL: import.meta.env.VITE_BACKEND_API_URL,
-  WALLETCONNECT_PROJECT_ID: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
+export const validateEnvVars = () => {
+    // 1. Check for required variables
+    const required = {
+      // VITE_WALLETCONNECT_PROJECT_ID is needed for RainbowKit/Wagmi
+      VITE_WALLETCONNECT_PROJECT_ID: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
+    };
   
-  // Optional
-  ENABLE_MEV_PROTECTION: import.meta.env.VITE_ENABLE_MEV_PROTECTION === 'true',
-  ENABLE_SWAP_HISTORY: import.meta.env.VITE_ENABLE_SWAP_HISTORY === 'true',
+    const missing = Object.entries(required)
+      .filter(([key, value]) => !value || value.includes('your_') || value.includes('_here'))
+      .map(([key]) => key);
   
-  // Analytics
-  MIXPANEL_TOKEN: import.meta.env.VITE_MIXPANEL_TOKEN,
-  SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
+    if (missing.length > 0) {
+      // In production, this is critical. In dev, we might warn.
+      const msg = `Missing or invalid environment variables: ${missing.join(', ')}.\nPlease configure these in your .env file.`;
+      
+      if (import.meta.env.PROD) {
+          throw new Error(msg);
+      } else {
+          console.warn('⚠️ ' + msg);
+      }
+    }
   
-  // Build info
-  MODE: import.meta.env.MODE,
-  IS_PROD: import.meta.env.PROD,
-  IS_DEV: import.meta.env.DEV,
-};
-
-/**
- * Validate environment variables
- * @throws {Error} if required vars are missing
- */
-export function validateEnvironment() {
-  const errors = [];
-  
-  // Production requirements
-  if (ENV.IS_PROD) {
-    // Note: BACKEND_API_URL is optional now (defaults to relative path)
+    // 2. Security Check: Ensure no server-only keys leak to client
+    const forbidden = ['LIFI_API_KEY', 'ALCHEMY_API_KEY', 'PRIVATE_KEY', 'MNEMONIC'];
+    const leaked = [];
     
-    if (!ENV.WALLETCONNECT_PROJECT_ID) {
-      errors.push('VITE_WALLETCONNECT_PROJECT_ID is required');
+    forbidden.forEach(key => {
+      // Check if the key exists in the accessible env (Vite exposes only VITE_ prefixed vars by default, 
+      // but sometimes users mess up config)
+      if (import.meta.env[key] || process?.env?.[key]) {
+        leaked.push(key);
+      }
+    });
+    
+    if (leaked.length > 0) {
+        throw new Error(
+          `SECURITY ERROR: ${leaked.join(', ')} exposed to client bundle! ` +
+          'These keys should only exist in backend environment variables.'
+        );
     }
-  }
-  
-  // Development warnings
-  if (ENV.IS_DEV) {
-    if (!ENV.BACKEND_API_URL) {
-      logger.warn('⚠️ VITE_BACKEND_API_URL not set - using direct API (insecure)');
-    }
-  }
-  
-  if (errors.length > 0) {
-    throw new Error(
-      '❌ Environment Configuration Error:\n' +
-      errors.map(e => `  - ${e}`).join('\n') +
-      '\n\nPlease check your .env file.'
-    );
-  }
-  
-  logger.log('✅ Environment validation passed');
-}
-
-export default ENV;
+    
+    console.log('✅ Environment variables validated');
+  };

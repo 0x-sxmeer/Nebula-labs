@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, ExternalLink, CheckCircle, Clock, XCircle, Trash2, ArrowRight, X } from 'lucide-react';
+import { History, ExternalLink, CheckCircle, Clock, XCircle, Trash2, ArrowRight, X, Download } from 'lucide-react';
 import { useSwapHistory } from '../../hooks/useSwapHistory';
 import './SwapHistory.css';
 
@@ -152,6 +152,38 @@ const SwapHistory = ({ walletAddress, isOpen, onClose }) => {
                         <span>Transaction History</span>
                     </div>
                     <div className="history-actions">
+                        {!isEmpty && (
+                            <button 
+                                className="action-btn"
+                                onClick={() => {
+                                    const headers = ['Date', 'From Token', 'Amount', 'To Token', 'Amount', 'Status', 'Tx Hash'];
+                                    const rows = history.map(item => [
+                                        new Date(item.timestamp).toLocaleString(),
+                                        item.fromToken?.symbol,
+                                        item.fromAmount,
+                                        item.toToken?.symbol,
+                                        item.toAmount,
+                                        item.status,
+                                        item.id
+                                    ]);
+                                    
+                                    const csvContent = "data:text/csv;charset=utf-8," 
+                                        + headers.join(",") + "\n" 
+                                        + rows.map(e => e.join(",")).join("\n");
+                                        
+                                    const encodedUri = encodeURI(csvContent);
+                                    const link = document.createElement("a");
+                                    link.setAttribute("href", encodedUri);
+                                    link.setAttribute("download", "nebula_swap_history.csv");
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }}
+                                title="Export CSV"
+                            >
+                                <Download size={16} />
+                            </button>
+                        )}
                         {!isEmpty && !showConfirmClear && (
                             <button 
                                 className="clear-btn"

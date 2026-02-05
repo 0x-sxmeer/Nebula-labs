@@ -690,7 +690,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     return selectedRoute;
   }, [selectedRoute, walletAddress, hasSufficientBalance]);
 
-  return {
+  return useMemo(() => ({
     // State
     fromChain,
     toChain,
@@ -735,7 +735,14 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     refreshRoutes: fetchRoutes,
     executeSwap,
     checkBalance,
-  };
+  }), [
+    fromChain, toChain, fromToken, toToken, fromAmount, slippage, routes, selectedRoute,
+    loading, isRefreshing, loadingBalance, error, autoRefresh, timeLeft, balance,
+    hasSufficientBalance, gasPrice, availableBridges, availableExchanges,
+    disabledBridges, disabledExchanges, customToAddress, isExecuting,
+    setFromChain, setToChain, setFromToken, setToToken, handleSetFromAmount,
+    switchTokens, fetchRoutes, executeSwap, checkBalance
+  ]);
 };
 
 export default useSwap;

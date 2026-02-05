@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlowingCard } from '../shared/GlowingCard';
-import { ArrowDown, Zap, RefreshCw, AlertCircle, Settings, Info, TrendingUp, CheckCircle, ChevronDown, Activity, ShieldCheck, ArrowLeft, GitMerge, Layers, Percent, Wallet, AlertTriangle, ArrowRight, DollarSign, History, Lock, Unlock } from 'lucide-react';
+import { ArrowDown, Zap, RefreshCw, AlertCircle, Settings, Info, TrendingUp, CheckCircle, ChevronDown, Activity, ShieldCheck, ArrowLeft, GitMerge, Layers, Percent, Wallet, AlertTriangle, ArrowRight, DollarSign, History, Lock, Unlock, RotateCcw } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import ChainTokenSelector from '../shared/ChainTokenSelector';
 import Skeleton from '../shared/Skeleton';
 import Tooltip from '../shared/Tooltip';
@@ -23,6 +24,7 @@ import { LARGE_CHAIN_ID_THRESHOLD, NATIVE_TOKEN_ADDRESS } from '../../config/lif
 import { formatUnits } from 'viem';
 import { isValidAddress } from '../../utils/securityHelpers';
 import { validateAmount, validateSlippage, validateRoute } from '../../utils/validation';
+import { getRecommendedSlippage } from '../../utils/slippageValidator';
 import './SwapCard.css';
 import './SwapCard_Tools.css';
 
@@ -61,6 +63,63 @@ const PriceImpactWarning = ({ impact }) => {
   );
 };
 
+// ✅ AUDIT ITEM #5: Rate Limit Warning
+const RateLimitWarning = () => {
+    const [status, setStatus] = useState(lifiService.getRateLimitStatus());
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+        setStatus(lifiService.getRateLimitStatus());
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (!status.limited) return null;
+
+    return (
+        <div className="warning-banner" style={{background: '#ff980022', border: '1px solid #ff9800', color: '#ff9800'}}>
+             ⚠️ Rate limit reached. Retrying in {status.resetIn}s...
+        </div>
+    );
+};
+
+// ✅ AUDIT ITEM #8: MEV Protection Status
+const MEVStatus = ({ slippage }) => {
+  if (slippage > 0.01) { // > 1%
+       return (
+            <Tooltip content="High slippage increases risk of front-running (MEV) attacks.">
+                <div style={{display:'flex', alignItems:'center', gap:'4px', color:'#ff9800', fontSize:'0.75rem', marginTop:'4px'}}>
+                    <AlertCircle size={12} />
+                    <span>MEV Risk: High</span>
+                </div>
+            </Tooltip>
+       );
+  }
+  return (
+       <div style={{display:'flex', alignItems:'center', gap:'4px', color:'#4caf50', fontSize:'0.75rem', marginTop:'4px'}}>
+            <ShieldCheck size={12} />
+            <span>Low MEV Risk</span>
+       </div>
+  );
+};
+
+// ✅ AUDIT ITEM #17: Terms Modal
+const TermsModal = ({ onAccept }) => (
+    <div className="terms-modal-overlay">
+        <div className="terms-modal">
+            <h3>Welcome to Nebula Swap</h3>
+            <p>By using this platform, you agree to our Terms of Service and Privacy Policy.</p>
+            <div className="terms-warning">
+                <AlertTriangle size={16} />
+                <span>This relies on beta smart contracts. Use at your own risk.</span>
+            </div>
+            <button className="primary-button" onClick={onAccept}>
+                I Agree & Continue
+            </button>
+        </div>
+    </div>
+);
+
 
 
 const SwapCard = () => {
@@ -71,7 +130,7 @@ const SwapCard = () => {
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
     const { switchChainAsync } = useSwitchChain();
     const currentChainId = useChainId();
-    const { executeSwap } = useSwapExecution();
+    const { executeSwap, monitoringState } = useSwapExecution();
     
     // State for Flip
     const [isFlipped, setIsFlipped] = useState(false);
@@ -191,6 +250,12 @@ const SwapCard = () => {
     useEffect(() => {
         if (isSuccess && activeHash) {
             setCompletedTxHash(activeHash);
+            // 🎉 Success Celebration
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
         }
     }, [isSuccess, activeHash]);
 
@@ -220,16 +285,20 @@ const SwapCard = () => {
 
     // Transaction Status Tracking
     const { status, subStatusMsg, txLink, error: statusError, startTracking, stopTracking, resetStatus } = useTransactionStatus();
+    
+    // ✅ SYNC: Use enhanced monitoring state if available
+    const effectiveStatus = monitoringState?.isMonitoring ? monitoringState.status : status;
+    const effectiveError = monitoringState?.error || statusError;
+
+    const [slippageWarning, setSlippageWarning] = useState(null);
 
     const handleSlippageChange = (value) => {
         const validation = validateSlippage(value);
-        if (!validation.valid) {
-            // Don't update state if invalid (or show error)
-            return;
+        if (!validation.valid && validation.level === 'error') {
+            return; // Block invalid input but allow warnings
         }
         
-        // Show/Hide warning based on validation
-        // (Assuming we have a warning state, or just let valid pass)
+        setSlippageWarning(validation.message);
         
         setCustomSlippage(value);
         setSlippage(parseFloat(value) / 100);
@@ -445,8 +514,8 @@ const SwapCard = () => {
         setShowReviewModal(true);
     };
     
-    const isExecuting = isSending || isConfirming || ((status || 'IDLE') !== 'IDLE' && status !== 'DONE' && status !== 'FAILED');
-    const isShowingStatus = isSending || isConfirming || ((status || 'IDLE') !== 'IDLE') || completedTxHash;
+    const isExecuting = isSending || isConfirming || ((effectiveStatus || 'IDLE') !== 'IDLE' && effectiveStatus !== 'DONE' && effectiveStatus !== 'FAILED');
+    const isShowingStatus = isSending || isConfirming || ((effectiveStatus || 'IDLE') !== 'IDLE') || completedTxHash;
 
     // Sync execution state to hook to prevent auto-refresh during transactions (Issue #1 fix)
     useEffect(() => {
@@ -456,7 +525,7 @@ const SwapCard = () => {
     // Watch for Transaction Hash to start tracking and save to history
     useEffect(() => {
         const hashToTrack = activeHash;
-        if (hashToTrack && selectedRoute && status === 'IDLE') {
+        if (hashToTrack && selectedRoute && effectiveStatus === 'IDLE') {
             logger.log('🚀 Starting transaction tracking for:', hashToTrack);
             startTracking({
                 txHash: hashToTrack,
@@ -481,7 +550,7 @@ const SwapCard = () => {
                 outputUSD: selectedRoute?.outputUSD
             });
         }
-    }, [activeHash, selectedRoute, fromChain, toChain, startTracking, status, saveSwap, fromToken, toToken, fromAmount, getExplorerUrl]);
+    }, [activeHash, selectedRoute, fromChain, toChain, startTracking, effectiveStatus, saveSwap, fromToken, toToken, fromAmount, getExplorerUrl]);
 
     // Update history when transaction completes or fails
     useEffect(() => {
@@ -503,8 +572,39 @@ const SwapCard = () => {
     const valueDiff = outputValUSD - inputValUSD;
     const valueDiffPct = (inputValUSD > 0) ? (valueDiff / inputValUSD) * 100 : 0;
 
+    // Auto Slippage Logic
+    useEffect(() => {
+        if (useAutoSlippage) {
+            // Use validator to get smart slippage based on route volatility
+            const recommended = getRecommendedSlippage(selectedRoute);
+            setSlippage(recommended / 100);
+        } else {
+            const val = parseFloat(customSlippage);
+            if (!isNaN(val)) {
+                setSlippage(val / 100);
+            }
+        }
+    }, [useAutoSlippage, customSlippage, selectedRoute, setSlippage]);
+
+    // Terms of Service Logic
+    useEffect(() => {
+        const accepted = localStorage.getItem('terms_accepted');
+        if (accepted === 'true') {
+            setAcceptedTerms(true);
+        }
+    }, []);
+
+    const handleAcceptTerms = () => {
+        localStorage.setItem('terms_accepted', 'true');
+        setAcceptedTerms(true);
+    };
+
     return (
         <div className="swap-card-wrapper">
+            {!acceptedTerms && <TermsModal onAccept={handleAcceptTerms} />}
+            
+            <RateLimitWarning />
+            
             {/* We keep the glowing wrapper OUTSIDE the flip so the glow is constant */}
             <GlowingCard>
                 <div className={`card-flip-inner ${isFlipped ? 'flipped' : ''}`}>
@@ -549,6 +649,11 @@ const SwapCard = () => {
                             {/* ========== MAIN CONTENT AREA ========== */}
                                     {/* From Input */}
                                     <div className="input-container">
+                                        {/* Gas Indicator */}
+                                        <div style={{position:'absolute', top:'-24px', right:'0', fontSize:'0.75rem', color:'#888', display:'flex', alignItems:'center', gap:'4px'}}>
+                                            <Activity size={12} />
+                                            <span>Gas: {gasPrice?.standard ? (gasPrice.standard / 1e9).toFixed(1) : '...'} Gwei</span>
+                                        </div>
                                         <div className="input-label-row">
                                             <span>You pay</span>
                                             <span>Balance: {loadingBalance ? '...' : (balance?.formatted ? parseFloat(balance.formatted).toFixed(6) : '0.0')}</span>
@@ -1027,9 +1132,37 @@ const SwapCard = () => {
                             {(error || executionError || approvalError || (statusError && status !== 'DONE')) && (
                                 <motion.div 
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
+                                    style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', flexDirection:'column', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
                                 >
-                                    <AlertCircle size={16} />{executionError?.message || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}
+                                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                        <AlertCircle size={16} />
+                                        <span>{executionError?.message || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}</span>
+                                    </div>
+                                    
+                                    {/* Retry Action */}
+                                    {(executionError?.recoverable || error) && (
+                                        <button 
+                                            onClick={() => {
+                                                setExecutionError(null);
+                                                refreshRoutes(true);
+                                            }}
+                                            style={{
+                                                alignSelf: 'flex-end',
+                                                background: 'rgba(255, 255, 255, 0.1)',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                padding: '4px 8px',
+                                                color: 'white',
+                                                fontSize: '0.75rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                        >
+                                            <RotateCcw size={12} /> Retry
+                                        </button>
+                                    )}
                                 </motion.div>
                             )}
 
@@ -1093,8 +1226,11 @@ const SwapCard = () => {
 
                                     {/* 3. Max Slippage */}
                                     <div className="settings-item">
-                                        <div className="settings-label">
-                                            <Percent size={18} /> Max. slippage
+                                        <div className="settings-label" style={{display:'flex', flexDirection:'column', alignItems:'flex-start', gap:'2px'}}>
+                                            <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+                                                <Percent size={18} /> Max. slippage
+                                            </div>
+                                            <MEVStatus slippage={slippage} />
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <button 
@@ -1113,6 +1249,11 @@ const SwapCard = () => {
                                             )}
                                         </div>
                                     </div>
+                                    {slippageWarning && (
+                                        <div style={{fontSize:'0.75rem', color:'#ff9800', padding:'0 12px 8px 12px', marginTop:'-8px'}}>
+                                            {slippageWarning}
+                                        </div>
+                                    )}
                                     
                                     {/* 4. Bridges */}
                                     <div className="settings-item" onClick={() => setSettingsView('bridges')} style={{ cursor: 'pointer' }}>

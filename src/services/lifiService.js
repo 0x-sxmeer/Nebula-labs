@@ -131,17 +131,18 @@ class LiFiService {
    * @private
    */
   async makeRequest(endpoint, options = {}) {
+    // Check if we're currently rate limited
+    if (this.rateLimitInfo.remaining <= 0 && this.rateLimitInfo.reset > 0) {
+       // Simple client-side check if we recorded a reset time
+       // Better to just try and handle the 429
+    }
+
     const { method = 'GET', body, retries = 2, cache = false, signal: externalSignal, timeout = 60000 } = options;
 
     // Check cache for GET requests
     if (method === 'GET' && cache) {
       const cached = this.getCached(endpoint);
       if (cached) return cached;
-    }
-
-    // Check rate limit
-    if (!this.canMakeRequest()) {
-      throw new Error('Rate limit exceeded. Please wait before breaking limit.');
     }
 
     let lastError;
@@ -182,6 +183,20 @@ class LiFiService {
 
         // Handle HTTP errors
         if (!response.ok) {
+           // ✅ NEW: Handle 429 rate limit responses
+           if (response.status === 429) {
+             const resetHeader = response.headers.get('X-RateLimit-Reset') || response.headers.get('Retry-After');
+             const resetSeconds = parseInt(resetHeader || '60');
+             
+             // Update internal state
+             this.rateLimitInfo.remaining = 0;
+             this.rateLimitInfo.reset = resetSeconds;
+             
+             throw new Error(
+               `Rate limit exceeded. Please retry in ${resetSeconds} seconds.`
+             );
+           }
+
           const errorData = await response.json().catch(() => ({}));
 
           // Handle specific error codes
@@ -196,6 +211,9 @@ class LiFiService {
             },
           };
         }
+        
+        // Parse rate limit headers
+        this.parseRateLimitHeaders(response.headers);
 
         const data = await response.json();
 
@@ -209,12 +227,10 @@ class LiFiService {
       } catch (error) {
         lastError = error;
         
-        // Don't retry on abort errors
-        if (error.name === 'AbortError') throw error;
+        // Don't retry on abort errors or rate limits
+        if (error.name === 'AbortError' || error.message.includes('Rate limit')) throw error;
 
         // Exponential backoff for retries
-
-        // Wait before retry (exponential backoff)
         if (attempt < retries) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
         }
