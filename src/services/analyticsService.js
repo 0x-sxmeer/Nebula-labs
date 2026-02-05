@@ -3,6 +3,8 @@
  * Centralized handling for user event tracking
  */
 
+import { logger } from '../utils/logger';
+
 class AnalyticsService {
   constructor() {
     this.initialized = false;
@@ -13,7 +15,7 @@ class AnalyticsService {
   init() {
     // Check for environment variables or config
     // if (import.meta.env.VITE_ANALYTICS_ID) { ... }
-    console.log('📊 Analytics Service Initialized');
+    logger.log('📊 Analytics Service Initialized');
     this.initialized = true;
   }
 
@@ -27,9 +29,9 @@ class AnalyticsService {
 
     // Log to console in development
     if (import.meta.env.DEV) {
-      console.group(`📊 Track: ${eventName}`);
-      console.log(properties);
-      console.groupEnd();
+      logger.group(`📊 Track: ${eventName}`);
+      logger.log(properties);
+      logger.groupEnd();
     }
 
     // Send to actual analytics services
@@ -59,10 +61,10 @@ class AnalyticsService {
             properties,
             timestamp: new Date().toISOString()
           })
-        }).catch(err => console.warn('Analytics POST failed:', err));
+        }).catch(err => logger.warn('Analytics POST failed:', err));
       }
     } catch (error) {
-      console.warn('Analytics error:', error);
+      logger.warn('Analytics error:', error);
       // Don't throw - analytics should never break the app
     }
   }

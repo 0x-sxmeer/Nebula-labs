@@ -5,6 +5,7 @@
 
 import { LIFI_CONFIG } from '../config/lifi.config.js';
 import { parseApiError, LIFI_ERROR_CODES } from '../utils/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * @typedef {Object} RateLimitInfo
@@ -27,13 +28,13 @@ class LiFiService {
             ? `${this.backendUrl}/lifi-proxy` 
             : '/lifi-proxy'; // Relative path uses Vercel rewrites
             
-        console.log('🚀 LiFi Service initialized in Production Mode');
-        console.log('📡 Endpoint:', this.baseUrl);
+        logger.log('🚀 LiFi Service initialized in Production Mode');
+        logger.log('📡 Endpoint:', this.baseUrl);
     }
     // ⚠️ DEV: Warn if no backend
     else if (import.meta.env.DEV) {
         if (!this.backendUrl) {
-            console.warn(
+            logger.warn(
                 '⚠️ WARNING: No backend configured.\n' +
                 'Using direct API calls (insecure for production).\n' +
                 'Set VITE_BACKEND_API_URL to use backend proxy.'
@@ -76,10 +77,10 @@ class LiFiService {
         if (stored) {
             const parsed = JSON.parse(stored);
             this.cache = new Map(parsed);
-            console.log('📦 Loaded cache from LocalStorage', this.cache.size);
+            logger.log('📦 Loaded cache from LocalStorage', this.cache.size);
         }
     } catch (e) {
-        console.warn('Failed to load cache from LS', e);
+        logger.warn('Failed to load cache from LS', e);
         try { localStorage.removeItem(this.LS_KEY); } catch (e) {}
     }
   }
@@ -111,7 +112,7 @@ class LiFiService {
     if (this.rateLimitInfo.remaining <= 5) {
       if (typeof window !== 'undefined' && window.showToast) {
         // Optional: Trigger toast if mechanism exists
-        console.warn('API rate limit approaching');
+        logger.warn('API rate limit approaching');
       }
     }
     
@@ -260,7 +261,7 @@ class LiFiService {
       const data = await this.makeRequest('/chains', { cache: true });
       return data.chains || [];
     } catch (error) {
-      console.error('Error fetching chains:', error);
+      logger.error('Error fetching chains:', error);
       const parsedError = parseApiError(error);
       throw new Error(parsedError.message);
     }
@@ -274,7 +275,7 @@ class LiFiService {
       const data = await this.makeRequest(`/tokens?chains=${chainId}`, { cache: true });
       return data.tokens?.[chainId] || [];
     } catch (error) {
-      console.error('Error fetching tokens:', error);
+      logger.error('Error fetching tokens:', error);
       const parsedError = parseApiError(error);
       throw new Error(parsedError.message);
     }
@@ -304,7 +305,7 @@ class LiFiService {
       const data = await this.makeRequest(`/token?chain=${chainId}&token=${tokenAddress}`, { cache: true });
       return data;
     } catch (error) {
-        console.error('Error fetching token info:', error);
+        logger.error('Error fetching token info:', error);
         // Return default structure instead of null
         return {
             address: tokenAddress,
@@ -354,7 +355,7 @@ class LiFiService {
         },
       };
 
-      console.log('📡 Fetching routes:', requestBody);
+      logger.log('📡 Fetching routes:', requestBody);
 
       const data = await this.makeRequest('/advanced/routes', {
         method: 'POST',
@@ -374,11 +375,11 @@ class LiFiService {
         };
       }
 
-      console.log(`✅ Found ${data.routes.length} routes`);
+      logger.log(`✅ Found ${data.routes.length} routes`);
       return data.routes;
 
     } catch (error) {
-      console.error('Error fetching routes:', error);
+      logger.error('Error fetching routes:', error);
       const parsedError = parseApiError(error);
       
       // Enhance error message with tool errors if present
@@ -421,7 +422,7 @@ class LiFiService {
         throw new Error('Invalid step action: missing token or amount data');
       }
 
-      console.log('📡 Requesting step transaction for:', step.id);
+      logger.log('📡 Requesting step transaction for:', step.id);
 
       const data = await this.makeRequest('/advanced/stepTransaction', {
         method: 'POST',
@@ -435,11 +436,11 @@ class LiFiService {
         throw new Error('API returned invalid transaction data');
       }
 
-      console.log('✅ Received step transaction');
+      logger.log('✅ Received step transaction');
       return data;
 
     } catch (error) {
-      console.error('❌ Error getting step transaction:', error);
+      logger.error('❌ Error getting step transaction:', error);
       const parsedError = parseApiError(error);
       throw new Error(parsedError.message);
     }
@@ -466,7 +467,7 @@ class LiFiService {
       return data;
 
     } catch (error) {
-      console.error('Error checking status:', error);
+      logger.error('Error checking status:', error);
       const parsedError = parseApiError(error);
       throw new Error(parsedError.message);
     }
@@ -482,7 +483,7 @@ class LiFiService {
       });
       return data;
     } catch (error) {
-      console.error('Error fetching gas prices:', error);
+      logger.error('Error fetching gas prices:', error);
       // Return fallback gas prices
       return {
         standard: 20000000000, // 20 gwei
@@ -503,7 +504,7 @@ class LiFiService {
         exchanges: data.exchanges || []
       };
     } catch (error) {
-      console.error('Error fetching tools:', error);
+      logger.error('Error fetching tools:', error);
       return { bridges: [], exchanges: [] };
     }
   }

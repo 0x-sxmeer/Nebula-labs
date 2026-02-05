@@ -3,6 +3,8 @@
  * Ensures all required env vars are present at startup
  */
 
+import { logger } from '../utils/logger';
+
 export const ENV = {
   // Required
   BACKEND_API_URL: import.meta.env.VITE_BACKEND_API_URL,
@@ -41,7 +43,7 @@ export function validateEnvironment() {
   // Development warnings
   if (ENV.IS_DEV) {
     if (!ENV.BACKEND_API_URL) {
-      console.warn('⚠️ VITE_BACKEND_API_URL not set - using direct API (insecure)');
+      logger.warn('⚠️ VITE_BACKEND_API_URL not set - using direct API (insecure)');
     }
   }
   
@@ -53,7 +55,7 @@ export function validateEnvironment() {
     );
   }
   
-  console.log('✅ Environment validation passed');
+  logger.log('✅ Environment validation passed');
 }
 
 export default ENV;

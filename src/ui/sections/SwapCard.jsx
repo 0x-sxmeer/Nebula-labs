@@ -16,12 +16,13 @@ import { useTransactionStatus } from '../../hooks/useTransactionStatus';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
 import { lifiService } from '../../services/lifiService';
 import { analytics } from '../../services/analyticsService';
-import { mevService } from '../../services/mevService';
+
 import { formatErrorForDisplay } from '../../utils/errorHandler';
 import { logger } from '../../utils/logger';
 import { LARGE_CHAIN_ID_THRESHOLD, NATIVE_TOKEN_ADDRESS } from '../../config/lifi.config';
 import { formatUnits } from 'viem';
 import { isValidAddress } from '../../utils/securityHelpers';
+import { validateAmount, validateSlippage, validateRoute } from '../../utils/validation';
 import './SwapCard.css';
 import './SwapCard_Tools.css';
 import { handleSwapProduction } from '../../utils/swapExecution';
@@ -101,7 +102,7 @@ const SwapCard = () => {
 
     const [gasSpeed, setGasSpeed] = useState('standard');
     const [customSlippage, setCustomSlippage] = useState('0.5');
-    const [useMevProtection, setUseMevProtection] = useState(false);
+
     const [useAutoSlippage, setUseAutoSlippage] = useState(false);
     
     // Token Approval Hook
@@ -209,11 +210,17 @@ const SwapCard = () => {
     const { status, subStatusMsg, txLink, error: statusError, startTracking, stopTracking, resetStatus } = useTransactionStatus();
 
     const handleSlippageChange = (value) => {
-        const numValue = parseFloat(value);
-        if (!isNaN(numValue) && numValue >= 0 && numValue <= 50) {
-            setCustomSlippage(value);
-            setSlippage(numValue / 100);
+        const validation = validateSlippage(value);
+        if (!validation.valid) {
+            // Don't update state if invalid (or show error)
+            return;
         }
+        
+        // Show/Hide warning based on validation
+        // (Assuming we have a warning state, or just let valid pass)
+        
+        setCustomSlippage(value);
+        setSlippage(parseFloat(value) / 100);
     };
 
     // Real Auto Slippage Calculation based on route data
@@ -302,6 +309,28 @@ const SwapCard = () => {
             return;
         }
 
+        // Enhanced Route Validation
+        const routeValidation = validateRoute(selectedRoute);
+        if (!routeValidation.valid) {
+             setExecutionError({
+                title: 'Invalid Route',
+                message: routeValidation.error,
+                recoverable: true,
+            });
+            return;
+        }
+
+        // Enhanced Amount Validation
+        const amountValidation = validateAmount(fromAmount, fromToken?.decimals);
+        if (!amountValidation.valid) {
+            setExecutionError({
+                title: 'Invalid Amount',
+                message: amountValidation.error,
+                recoverable: true,
+            });
+            return;
+        }
+
         // ✅ CRITICAL FIX: Custom Address Validation
         if (customToAddress && !isValidAddress(customToAddress)) {
             setExecutionError({
@@ -347,9 +376,7 @@ const SwapCard = () => {
                 fromAmount,
                 hasSufficientBalance, // Note: this might be stale if balance changed this second, but safe enough
                 checkBalance,
-                useMevProtection // ✅ Pass MEV state
             });
-            
             if (result?.hash) {
                 setCompletedTxHash(result.hash);
                 // Also update manual hash for tracking
@@ -497,6 +524,7 @@ const SwapCard = () => {
                                                 onChange={(e) => {
                                                     if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) {
                                                         setFromAmount(e.target.value);
+                                                        if (executionError) setExecutionError(null); // Clear error on type
                                                     }
                                                 }}
                                             />
@@ -941,7 +969,7 @@ const SwapCard = () => {
 
                              {/* Active Features */}
                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
-                                {useMevProtection && <div className="feature-badge feature-mev">🛡️ MEV Protected</div>}
+
                                 {gasSpeed === 'fast' && <div className="feature-badge feature-gas">⚡ Fast Gas</div>}
                             </div>
                             {/* Errors */}
@@ -1055,15 +1083,7 @@ const SwapCard = () => {
                                         </div>
                                     </div>
 
-                                    {/* MEV Protection */}
-                                    <div className="settings-item" onClick={() => setUseMevProtection(!useMevProtection)} style={{ cursor: 'pointer' }}>
-                                        <div className="settings-label">
-                                            <ShieldCheck size={18} /> MEV Protection
-                                        </div>
-                                        <div className="settings-control" style={{ color: useMevProtection ? 'var(--success)' : '#666' }}>
-                                            {useMevProtection ? 'Active' : 'Disabled'}
-                                        </div>
-                                    </div>
+
                                 </div>
                             )}
 

@@ -1,23 +1,42 @@
 // api/lifi-proxy.js - Enhanced with rate limiting and security
 
 // Simple in-memory rate limiter (for Vercel serverless)
-const requests = new Map();
+// Enhanced rate limiter using Vercel KV (Redis)
+import { kv } from '@vercel/kv';
 
-function checkRateLimit(ip, limit = 100, windowMs = 15 * 60 * 1000) {
-  const now = Date.now();
-  const userRequests = requests.get(ip) || [];
+async function checkRateLimit(ip, limit = 100, windowMs = 900) {
+  const key = `ratelimit:${ip}`;
   
-  // Clean old requests
-  const recentRequests = userRequests.filter(time => now - time < windowMs);
-  
-  if (recentRequests.length >= limit) {
-    return { allowed: false, remaining: 0, resetIn: windowMs - (now - recentRequests[0]) };
+  try {
+    // Increment counter
+    const count = await kv.incr(key);
+    
+    // Set expiry on first request
+    if (count === 1) {
+      await kv.expire(key, windowMs); // 15 minutes = 900 seconds
+    }
+    
+    // Get TTL for resetIn
+    const ttl = await kv.ttl(key);
+    
+    if (count > limit) {
+      return { 
+        allowed: false, 
+        remaining: 0, 
+        resetIn: ttl 
+      };
+    }
+    
+    return { 
+      allowed: true, 
+      remaining: limit - count,
+      resetIn: ttl
+    };
+  } catch (error) {
+    console.error('Rate limit check failed:', error);
+    // Fail open - allow request if Redis is down
+    return { allowed: true, remaining: limit };
   }
-  
-  recentRequests.push(now);
-  requests.set(ip, recentRequests);
-  
-  return { allowed: true, remaining: limit - recentRequests.length };
 }
 
 export default async function handler(req, res) {
@@ -47,7 +66,7 @@ export default async function handler(req, res) {
   
   // Rate limiting
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-  const rateLimit = checkRateLimit(ip);
+  const rateLimit = await checkRateLimit(ip);
   
   res.setHeader('X-RateLimit-Limit', '100');
   res.setHeader('X-RateLimit-Remaining', String(rateLimit.remaining));

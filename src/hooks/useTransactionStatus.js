@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { lifiService } from '../services/lifiService';
+import { logger } from '../utils/logger';
 
 export const STATUS = {
     IDLE: 'IDLE',
@@ -46,7 +47,7 @@ export const useTransactionStatus = () => {
 
         // Timeout check - prevent infinite polling
         if (attempts.current > MAX_ATTEMPTS) {
-            console.warn('⏱️ Transaction tracking timed out after 10 minutes');
+            logger.warn('⏱️ Transaction tracking timed out after 10 minutes');
             setStatus(STATUS.NOT_FOUND);
             setError('Transaction tracking timed out. Please check the block explorer.');
             stopTracking();
@@ -57,7 +58,7 @@ export const useTransactionStatus = () => {
             const data = await lifiService.getStatus(activeAuth);
             
             // Log for debugging
-            console.log('📡 Status Update:', data);
+            logger.log('📡 Status Update:', data);
 
             if (!data) {
                 // Keep polling if not found yet (could be indexing delay)
@@ -98,7 +99,7 @@ export const useTransactionStatus = () => {
             }
 
         } catch (err) {
-            console.warn('Poll failed', err);
+            logger.warn('Poll failed', err);
             // Don't stop immediately on network error, retry
         } finally {
             attempts.current++;

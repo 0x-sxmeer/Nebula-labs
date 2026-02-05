@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Search, X, Zap, TrendingUp, Star, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { lifiService } from '../../services/lifiService';
+import { logger } from '../../utils/logger';
 import './ChainTokenSelector.css';
 
 // Popular chains with better logos
@@ -178,7 +179,7 @@ const ChainTokenSelector = ({
         if (retryCount === 0) setChainsLoading(true);
         try {
             const fetchedChains = await lifiService.getChains();
-            console.log("Found chains:", fetchedChains.length);
+            logger.log("Found chains:", fetchedChains.length);
 
             // Simple map: Use API data directly. 
             // Note: popularChains is just used for BETTER logos/keys if available, NOT for filtering.
@@ -202,7 +203,7 @@ const ChainTokenSelector = ({
             
             setChains(sortedChains);
         } catch (error) {
-            console.error('Error loading chains:', error);
+            logger.error('Error loading chains:', error);
             
             if (retryCount < 3) {
                 setTimeout(() => loadChains(retryCount + 1), 1000);
@@ -228,12 +229,12 @@ const ChainTokenSelector = ({
                 setTokens(sortTokens(fetchedTokens));
             }
         } catch (error) {
-            console.error('Error loading tokens:', error);
+            logger.error('Error loading tokens:', error);
             
             // Retry logic
             if (retryCount < 3) {
                 const delay = 1500 * (retryCount + 1);
-                console.warn(`Token load failed for chain ${chainId}, retrying in ${delay}ms...`);
+                logger.warn(`Token load failed for chain ${chainId}, retrying in ${delay}ms...`);
                 // Check ref again before retrying to ensure we don't retry for an old chain
                 if (activeChainIdRef.current === chainId) {
                     setTimeout(() => loadTokens(chainId, retryCount + 1), delay);
@@ -300,7 +301,7 @@ const ChainTokenSelector = ({
             const topChainIds = [1, 137, 56, 42161, 10, 1151111081099710]; // ETH, POL, BSC, ARB, OPT, SOL
             topChainIds.forEach(id => {
                 // Fire and forget - populates cache
-                lifiService.getTokens(id).catch(e => console.warn('Prefetch failed', id));
+                lifiService.getTokens(id).catch(e => logger.warn('Prefetch failed', id));
             });
         };
         prefetch();

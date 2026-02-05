@@ -1,20 +1,29 @@
 // api/rpc-proxy.js - Enhanced RPC proxy with rate limiting
 
-const requests = new Map();
+// Enhanced rate limiter using Vercel KV (Redis)
+import { kv } from '@vercel/kv';
 
-function checkRateLimit(ip, limit = 200, windowMs = 15 * 60 * 1000) {
-  const now = Date.now();
-  const userRequests = requests.get(ip) || [];
-  const recentRequests = userRequests.filter(time => now - time < windowMs);
+async function checkRateLimit(ip, limit = 200, windowMs = 900) {
+  const key = `ratelimit:${ip}`;
   
-  if (recentRequests.length >= limit) {
-    return { allowed: false, remaining: 0 };
+  try {
+    const count = await kv.incr(key);
+    
+    if (count === 1) {
+      await kv.expire(key, windowMs);
+    }
+    
+    const ttl = await kv.ttl(key);
+    
+    if (count > limit) {
+      return { allowed: false, remaining: 0 };
+    }
+    
+    return { allowed: true, remaining: limit - count };
+  } catch (error) {
+    console.error('Rate limit check failed:', error);
+    return { allowed: true, remaining: limit };
   }
-  
-  recentRequests.push(now);
-  requests.set(ip, recentRequests);
-  
-  return { allowed: true, remaining: limit - recentRequests.length };
 }
 
 export default async function handler(req, res) {
@@ -40,7 +49,7 @@ export default async function handler(req, res) {
   
   // Rate limiting
   const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-  const rateLimit = checkRateLimit(ip);
+  const rateLimit = await checkRateLimit(ip);
   
   if (!rateLimit.allowed) {
     return res.status(429).json({ error: 'Rate limit exceeded' });

@@ -3,6 +3,8 @@
  * Falls back through multiple sources for accuracy
  */
 
+import { logger } from './logger';
+
 const GAS_APIS = {
   ethereum: [
     'https://api.etherscan.io/api?module=gastracker&action=gasoracle',
@@ -41,13 +43,12 @@ export async function getRealTimeGasPrice(chainId = 1, speed = 'standard') {
           gwei = data.result.ProposeGasPrice || data.result.suggestBaseFee;
       }
       
-      // Convert Gwei to Wei
       const wei = BigInt(Math.floor(parseFloat(gwei) * 1e9));
-      console.log(`⛽ Real-time gas (${speed}): ${gwei} Gwei`);
+      logger.log(`⛽ Real-time gas (${speed}): ${gwei} Gwei`);
       return wei.toString();
     }
   } catch (error) {
-    console.warn('Etherscan gas price fetch failed:', error);
+    logger.warn('Etherscan gas price fetch failed:', error);
   }
 
   // Try MetaMask API as fallback
@@ -69,11 +70,11 @@ export async function getRealTimeGasPrice(chainId = 1, speed = 'standard') {
     
     if (gwei) {
       const wei = BigInt(Math.floor(parseFloat(gwei) * 1e9));
-      console.log(`⛽ Real-time gas (${speed}): ${gwei} Gwei (MetaMask API)`);
+      logger.log(`⛽ Real-time gas (${speed}): ${gwei} Gwei (MetaMask API)`);
       return wei.toString();
     }
   } catch (error) {
-    console.warn('MetaMask gas price fetch failed:', error);
+    logger.warn('MetaMask gas price fetch failed:', error);
   }
 
   return null; // No gas price available

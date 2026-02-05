@@ -33,7 +33,14 @@ export default defineConfig({
     target: 'esnext',
     sourcemap: false, // ✅ Save memory during build
     rollupOptions: {
-        // Ensure no external dependencies are causing issues
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-wallet': ['wagmi', '@rainbow-me/rainbowkit'],
+          'vendor-lifi': ['@lifi/sdk'],
+          'vendor-ui': ['framer-motion', 'lucide-react'],
+        }
+      }
     }
   },
 })
