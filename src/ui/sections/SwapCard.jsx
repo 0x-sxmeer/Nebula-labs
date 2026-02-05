@@ -108,6 +108,9 @@ const SwapCard = () => {
         isRefreshing, timeLeft
     } = useSwap(walletAddress); // Initialize useSwap hook
 
+    // Initialize Swap History
+    const { saveSwap, updateStatus, getExplorerUrl } = useSwapHistory(walletAddress);
+
     // Get the spender address from the selected route (LiFi router)
     // Dry Run Fix: Robust spender resolution
     const spenderAddress = selectedRoute?.steps?.[0]?.estimate?.approvalAddress || 
