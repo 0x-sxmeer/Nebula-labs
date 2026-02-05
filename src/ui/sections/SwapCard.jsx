@@ -358,9 +358,22 @@ const SwapCard = () => {
 
         } catch (error) {
             logger.error('Swap error:', error);
+            
+            // Safely format error message to prevent rendering crashes
+            let errorMessage = 'An unexpected error occurred';
+            if (error?.message) {
+                errorMessage = typeof error.message === 'object' 
+                    ? JSON.stringify(error.message) 
+                    : String(error.message);
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            } else {
+                 errorMessage = String(error);
+            }
+
             setExecutionError({
                 title: 'Swap Failed',
-                message: error.message || 'An unexpected error occurred',
+                message: errorMessage,
                 recoverable: true,
             });
         } finally {

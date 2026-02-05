@@ -83,8 +83,13 @@ class MevService {
         
         // 5. Wait for inclusion
         const waitResponse = await bundleSubmission.wait();
+        
+        // Calculate hash from signed transaction
+        const { keccak256 } = await import('ethers');
+        const txHash = keccak256(signedTx);
+        
         if (waitResponse === 0) { // FlashbotsBundleResolution.BundleIncluded
-             return { hash: JSON.parse(signedTx).hash, status: 'included' }; // Rough hash extraction or compute it
+             return { hash: txHash, status: 'included' }; 
         } else {
              throw new Error('Bundle not included in target block');
              // In pro version, we would re-submit for next blocks
