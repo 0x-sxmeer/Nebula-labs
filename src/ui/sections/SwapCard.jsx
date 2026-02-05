@@ -103,9 +103,9 @@ const SwapCard = () => {
         routes, selectedRoute, loading, error,
         setFromToken, setToToken, setFromChain, setToChain, setFromAmount,
         setSelectedRoute, 
-        fetchRoutes, refreshRoutes,
+        refreshRoutes,
         slippage, setSlippage,
-        isRefreshing, timeUntilRefresh
+        isRefreshing, timeLeft
     } = useSwap(walletAddress); // Initialize useSwap hook
 
     // Get the spender address from the selected route (LiFi router)
@@ -979,7 +979,7 @@ const SwapCard = () => {
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
-                                    disabled={!isConnected || isApprovalPending || isCheckingApproval}
+                                    className="swap-button approve-button"
                                     disabled={!isConnected || isApprovalPending || isCheckingApproval}
                                     onClick={() => handleApprove(useInfiniteApproval)} 
                                     style={{
