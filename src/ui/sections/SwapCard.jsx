@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlowingCard } from '../shared/GlowingCard';
 import { ArrowDown, Zap, RefreshCw, AlertCircle, Settings, Info, TrendingUp, CheckCircle, ChevronDown, Activity, ShieldCheck, ArrowLeft, GitMerge, Layers, Percent, Wallet, AlertTriangle, ArrowRight, DollarSign, History, Lock, Unlock, RotateCcw } from 'lucide-react';
