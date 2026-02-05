@@ -1,20 +1,38 @@
 
 import { useSendTransaction, useEstimateFeesPerGas } from 'wagmi';
-import { parseUnits, formatUnits } from 'ethers';
+import { parseUnits, formatUnits } from 'viem';
 import { lifiService } from '../services/lifiService';
-import { mevService } from '../services/mevService'; // ✅ NEW
-import { useEthersSigner } from './useEthersAdapter'; // ✅ NEW
 import { logger } from '../utils/logger';
 import { NATIVE_TOKEN_ADDRESS } from '../config/lifi.config';
+import { APPROVED_LIFI_ROUTERS, GAS_LIMITS } from '../config/security';
+import { analytics } from '../services/analyticsService';
 
 /**
  * ✅ FIXED: Comprehensive transaction validation before sending
+ * Merged with robust logic from utils/swapExecution.js
  */
 export const useSwapExecution = () => {
   const { sendTransactionAsync } = useSendTransaction();
   const { data: feeData } = useEstimateFeesPerGas();
-  const signer = useEthersSigner(); // ✅ Get Ethers signer for MEV
   
+  /**
+   * Check if router address is approved (whitelisted)
+   */
+  const isApprovedRouter = (address, chainId) => {
+    const approvedRouters = APPROVED_LIFI_ROUTERS[chainId];
+    
+    if (!approvedRouters || approvedRouters.length === 0) {
+      logger.warn(`⚠️ No router whitelist defined for chain ${chainId}`);
+      return { approved: true, unknown: true };
+    }
+    
+    const isApproved = approvedRouters
+      .map(r => r.toLowerCase())
+      .includes(address.toLowerCase());
+    
+    return { approved: isApproved, unknown: false };
+  };
+
   /**
    * Validates everything before executing swap
    */
@@ -25,18 +43,22 @@ export const useSwapExecution = () => {
     fromAmount,
     hasSufficientBalance,
     checkBalance,
-    useMevProtection, // ✅ Received from component
+    // useMevProtection, // Removed as service is deprecated
   }) => {
     // 1. Basic validation
     if (!selectedRoute) {
       throw new Error('No route selected');
     }
     
+    if (!fromToken || !toToken) {
+      throw new Error('Invalid tokens');
+    }
+
     if (!hasSufficientBalance) {
       throw new Error('Insufficient balance');
     }
     
-    // 2. ✅ Validate route age (prevent stale quotes)
+    // 2. ✅ Validate route age
     if (selectedRoute.timestamp) {
         const routeAge = Date.now() - selectedRoute.timestamp;
         const MAX_ROUTE_AGE = 60000; // 1 minute
@@ -46,67 +68,71 @@ export const useSwapExecution = () => {
             `Quote is stale (${Math.round(routeAge / 1000)}s old). Please refresh for latest rates.`
         );
         }
-        logger.log(`✅ Route age: ${Math.round(routeAge / 1000)}s (valid)`);
     }
     
-    // 3. ✅ Re-check balance right before transaction
-    logger.log('Re-checking balance...');
+    // 3. ✅ Re-check balance
     await checkBalance();
-    logger.log('✅ Balance check passed (via pre-validation)');
     
-    // 4. ✅ Validate gas price isn't excessive
-    const currentGasPrice = feeData?.gasPrice || BigInt(0);
-    const maxAcceptableGasPrice = parseUnits('100', 'gwei'); // Adjust per chain
-    
-    if (currentGasPrice > maxAcceptableGasPrice) {
-      const gasPriceGwei = formatUnits(currentGasPrice, 'gwei');
-      
-      // Attempt to estimate USD cost (very rough: gasLimit * gasPrice * ETH price)
-      // We don't have ETH price explicitly here, but if fromToken is native we might.
-      // Or just warn about Gwei.
-      // "Warn if gas > 100 gwei" - Check. "Show USD cost estimate" - Needs native price.
-      // We'll trust the user knows Gwei for now or if we had a price oracle... 
-      // User Guide says "Show USD cost estimate".
-      // Let's rely on the gas estimate from the route if available?
-      const routeGasCostUSD = selectedRoute.gasCostUSD;
-      const gasMsg = routeGasCostUSD 
-        ? `Est. Gas Cost: $${routeGasCostUSD}`
-        : `Gas Price: ${parseFloat(gasPriceGwei).toFixed(2)} gwei`;
-
-      const userConfirms = window.confirm(
-        `⚠️ High Gas Price Warning\n\n` +
-        `${gasMsg}\n` +
-        `This swap may be expensive. Continue anyway?`
+    // 4. ✅ Large Value Confirmation
+    const inputUSD = parseFloat(selectedRoute.inputUSD || selectedRoute.fromAmountUSD || '0');
+    if (inputUSD > 10000) {
+      const outputAmount = selectedRoute.outputAmountFormatted || 'Unknown';
+      const confirmed = window.confirm(
+        `⚠️ LARGE SWAP DETECTED\n\n` +
+        `Value: $${inputUSD.toLocaleString()}\n` +
+        `Receive: ~${outputAmount} ${toToken?.symbol}\n\n` +
+        `Continue?`
       );
       
-      if (!userConfirms) {
-        throw new Error('Swap cancelled - gas price too high');
+      if (!confirmed) {
+        throw new Error('Swap cancelled by user');
       }
     }
-    
-    logger.log(`✅ Gas price: ${formatUnits(currentGasPrice, 'gwei')} gwei`);
-    
-    // 5. ✅ Get fresh step transaction from Li.Fi
+
+    // 5. ✅ Get fresh step transaction
     logger.log('Getting step transaction...');
-    
     const stepTxData = await lifiService.getStepTransaction(selectedRoute);
     
     if (!stepTxData?.transactionRequest) {
       throw new Error('Failed to get transaction data from Li.Fi');
     }
     
-    // 6. ✅ Validate transaction data
     const txRequest = stepTxData.transactionRequest;
     
-    if (!txRequest.to) {
-      throw new Error('Invalid transaction: missing recipient');
+    if (!txRequest.to || !txRequest.data) {
+      throw new Error('Invalid transaction data received');
+    }
+
+    // 6. ✅ Router Address Verification (Security)
+    // Use selectedRoute.fromChainId or fromToken.chainId
+    const chainId = fromToken.chainId; 
+    const routerCheck = isApprovedRouter(txRequest.to, chainId);
+
+    if (!routerCheck.approved) {
+        const confirmed = window.confirm(
+            `⚠️ SECURITY WARNING\n\n` +
+            `Destination address is not in our verified list.\n` +
+            `Address: ${txRequest.to}\n\n` +
+            `Proceed anyway?`
+        );
+        if (!confirmed) throw new Error('Swap cancelled: Unknown router');
+        
+        analytics.track('Unknown Router Accepted', { address: txRequest.to, chain: chainId });
+    }
+
+    // 7. ✅ Gas Limit Checks
+    if (txRequest.gasLimit) {
+        const gasLimit = BigInt(txRequest.gasLimit);
+        if (gasLimit > GAS_LIMITS.MAX_WARNING) {
+            const confirmed = window.confirm(
+                `🚨 EXTREMELY HIGH GAS LIMIT: ${gasLimit.toString()}\n\n` +
+                `This is suspicious. Continue?`
+            );
+            if (!confirmed) throw new Error('Swap cancelled: High gas limit');
+        }
     }
     
-    if (!txRequest.data) {
-      throw new Error('Invalid transaction: missing call data');
-    }
-    
-    // 7. ✅ Validate value matches expected amount for native tokens
+    // 8. ✅ Validate value for native tokens
     const isNative = fromToken.address === NATIVE_TOKEN_ADDRESS ||
                      fromToken.address === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
     
@@ -115,72 +141,28 @@ export const useSwapExecution = () => {
       const txValue = BigInt(txRequest.value || '0');
       
       // Allow 1% variance
-      const minValue = (expectedValue * BigInt(99)) / BigInt(100);
-      const maxValue = (expectedValue * BigInt(101)) / BigInt(100);
+      const start = (expectedValue * 99n) / 100n;
+      const end = (expectedValue * 101n) / 100n;
       
-      if (txValue < minValue || txValue > maxValue) {
-        throw new Error(
-          `Transaction value mismatch.\n` +
-          `Expected: ${fromAmount} ${fromToken.symbol}\n` +
-          `Got: ${formatUnits(txValue, fromToken.decimals)} ${fromToken.symbol}`
-        );
+      if (txValue < start || txValue > end) {
+        throw new Error(`Transaction value mismatch. Expected ~${fromAmount} ${fromToken.symbol}`);
       }
     }
     
-    logger.log('✅ Transaction validation passed');
-    
-    // 8. ✅ Build final transaction parameters
+    // 9. ✅ Build parameters
     const txParams = {
       to: txRequest.to,
       data: txRequest.data,
-      value: txRequest.value ? BigInt(txRequest.value) : BigInt(0), // Ensure BigInt
-      gas: txRequest.gasLimit ? BigInt(txRequest.gasLimit) : undefined,
+      value: txRequest.value ? BigInt(txRequest.value) : 0n,
+      gas: txRequest.gasLimit ? (BigInt(txRequest.gasLimit) * 120n) / 100n : undefined, // 20% buffer
     };
     
-    // 9. ✅ Send transaction with timeout (MEV Protected if enabled)
+    // 10. ✅ Send Transaction
     logger.log('Sending transaction...', txParams);
     
-    // 5-minute timeout limit for wallet interaction + broadcast
-    const TRANSACTION_TIMEOUT = 5 * 60 * 1000; 
-    const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Transaction timed out (5 minutes)')), TRANSACTION_TIMEOUT);
-    });
-
-    let sendPromise;
-
-    // ✅ MEV Protection Logic
-    if (useMevProtection && fromToken.chainId === 1) { // Only Mainnet supports Flashbots
-        logger.log('🛡️ Using MEV Protection (Flashbots)...');
-        
-        if (!signer) {
-             throw new Error('MEV Protection unavailable: Could not access wallet signer.');
-        }
-
-        // We need the provider attached to the signer
-        if (!signer.provider) {
-             throw new Error('MEV Protection unavailable: Signer has no provider.');
-        }
-
-        // Execute via MevService
-        // Note: mevService.sendPrivateTransaction expects (signer, provider, txRequest, chainId)
-        sendPromise = mevService.sendPrivateTransaction(
-            signer, 
-            signer.provider, 
-            txParams, 
-            fromToken.chainId
-        ).then(res => res.hash); // Ensure it returns hash string
-
-    } else {
-         sendPromise = sendTransactionAsync(txParams);
-    }
-
-    const hash = await Promise.race([
-        sendPromise,
-        timeoutPromise
-    ]);
+    const hash = await sendTransactionAsync(txParams);
     
     logger.log(`✅ Transaction sent: ${hash}`);
-    
     return { hash };
   };
   

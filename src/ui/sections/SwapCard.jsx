@@ -25,7 +25,7 @@ import { isValidAddress } from '../../utils/securityHelpers';
 import { validateAmount, validateSlippage, validateRoute } from '../../utils/validation';
 import './SwapCard.css';
 import './SwapCard_Tools.css';
-import { handleSwapProduction } from '../../utils/swapExecution';
+
 
 // Animation Variants
 const fadeInUp = {

@@ -2,12 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import Header from '../ui/sections/Header';
+import Navbar from '../ui/shared/Navbar';
 
 const PrivacyPage = () => {
   return (
     <div className="page-container">
-      <Header />
+      <Navbar />
       
       <div className="content-wrapper" style={{ paddingTop: '100px', maxWidth: '800px', margin: '0 auto', paddingBottom: '60px' }}>
         <Link to="/" className="back-link" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#888', marginBottom: '24px', textDecoration: 'none' }}>
