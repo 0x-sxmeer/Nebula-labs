@@ -130,12 +130,19 @@ export const getToolErrorMessage = (toolErrorCode) => {
  */
 export const parseApiError = (error) => {
   // Handle network errors
-  if (!error.response && error.message) {
+  // Safely check for message existence and ensure it's a string
+  const errorMessage = error?.message ? String(error.message) : '';
+  
+  if (!error?.response && errorMessage) {
+    // Check for specific fetch failures
+    const isCORS = errorMessage.includes('Failed to fetch') || errorMessage.includes('Network request failed');
+    const detail = error.cause ? ` (${error.cause})` : '';
+    
     return {
       code: LIFI_ERROR_CODES.TIMEOUT_ERROR,
-      message: error.message.includes('timeout') 
+      message: errorMessage.includes('timeout') 
         ? 'Request timed out. Please try again.'
-        : 'Network error. Please check your connection.',
+        : `Network Error: ${errorMessage}${detail}`,
     };
   }
 

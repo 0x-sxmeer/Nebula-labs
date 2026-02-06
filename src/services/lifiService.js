@@ -227,7 +227,7 @@ class LiFiService {
         lastError = error;
         
         // Don't retry on abort errors or rate limits
-        if (error.name === 'AbortError' || error.message.includes('Rate limit')) throw error;
+        if (error.name === 'AbortError' || error?.message?.includes('Rate limit')) throw error;
 
         // Exponential backoff for retries
         if (attempt < retries) {

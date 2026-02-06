@@ -51,7 +51,7 @@ export default defineConfig({
         target: 'https://li.quest/v1',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/lifi-proxy/, ''),
-        secure: true, 
+        secure: false,  // Revert to false to prevent strict SSL issues locally 
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, _req, _res) => {
             // Spoof User-Agent and Origin to look like a direct request
