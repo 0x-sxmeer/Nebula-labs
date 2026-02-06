@@ -29,18 +29,23 @@ export const validateSlippage = (slippage) => {
   const num = parseFloat(slippage);
   
   if (isNaN(num) || num < 0) {
-    return { valid: false, error: 'Invalid slippage' };
+    return { valid: false, level: 'error', error: 'Invalid slippage' };
   }
   
-  if (num > 50) {
-    return { valid: false, error: 'Slippage too high (max 50%)' };
+  // ✅ Issue #11: 10% hard limit (MEV protection)
+  if (num > 10) {
+    return { valid: false, level: 'error', error: 'Slippage cannot exceed 10% (MEV protection)' };
   }
   
   if (num > 5) {
-    return { valid: true, warning: 'High slippage: You may lose significant value' };
+    return { valid: true, level: 'critical', warning: '⚠️ CRITICAL: Extremely high slippage may result in significant value loss' };
   }
   
-  return { valid: true };
+  if (num > 2) {
+    return { valid: true, level: 'warning', message: 'High slippage increases MEV attack risk' };
+  }
+  
+  return { valid: true, level: 'safe' };
 };
 
 export const validateRoute = (route) => {

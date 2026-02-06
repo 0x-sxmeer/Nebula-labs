@@ -32,14 +32,43 @@ export const config = createConfig({
     // Only add WalletConnect if projectId is available
     ...(projectId ? [walletConnect({ projectId })] : []),
   ],
+  // ✅ CRITICAL FIX #5: RPC Fallback Strategy with retry configuration
   transports: {
-    [mainnet.id]: http('/api/rpc-proxy?chain=ethereum'),
-    [polygon.id]: http('/api/rpc-proxy?chain=polygon'),
-    [bsc.id]: http('/api/rpc-proxy?chain=bsc'),
-    [arbitrum.id]: http('/api/rpc-proxy?chain=arbitrum'),
-    [optimism.id]: http('/api/rpc-proxy?chain=optimism'),
-    [base.id]: http('/api/rpc-proxy?chain=base'),
-    [avalanche.id]: http('/api/rpc-proxy?chain=avalanche'),
+    [mainnet.id]: http('/api/rpc-proxy?chain=ethereum', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [polygon.id]: http('/api/rpc-proxy?chain=polygon', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [bsc.id]: http('/api/rpc-proxy?chain=bsc', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [arbitrum.id]: http('/api/rpc-proxy?chain=arbitrum', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [optimism.id]: http('/api/rpc-proxy?chain=optimism', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [base.id]: http('/api/rpc-proxy?chain=base', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
+    [avalanche.id]: http('/api/rpc-proxy?chain=avalanche', {
+      timeout: 10_000,
+      retryCount: 3,
+      retryDelay: 1000,
+    }),
   },
   storage: null,
 });

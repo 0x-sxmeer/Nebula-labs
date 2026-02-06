@@ -7,7 +7,8 @@ export const SLIPPAGE_LIMITS = {
     MIN: 0.01, // 0.01% minimum
     SAFE_MAX: 1.0, // 1% safe maximum for most pairs
     WARNING_THRESHOLD: 2.0, // Warn above 2%
-    ABSOLUTE_MAX: 50.0, // 50% absolute maximum (prevent typos)
+    HIGH_RISK: 5.0, // High risk threshold
+    ABSOLUTE_MAX: 10.0, // ✅ Issue #11: 10% hard limit (was 50%)
   };
   
   /**
@@ -30,7 +31,7 @@ export const SLIPPAGE_LIMITS = {
       return {
         valid: false,
         level: 'error',
-        message: `Max slippage is ${SLIPPAGE_LIMITS.ABSOLUTE_MAX}%`
+        message: `Slippage cannot exceed ${SLIPPAGE_LIMITS.ABSOLUTE_MAX}% (MEV protection)`
       };
     }
   

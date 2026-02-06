@@ -403,9 +403,10 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       return;
     }
 
-    // Abort any pending request
+    // ✅ CRITICAL FIX #1: Abort and cleanup previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null; // Prevent memory leaks
     }
     
     // Create new abort controller for this request
@@ -643,10 +644,12 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   }, []);
 
   // ========== CLEANUP ON UNMOUNT ==========
+  // ✅ CRITICAL FIX #1: Cleanup on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
+        abortControllerRef.current = null;
         logger.log('🧹 Cleaned up pending route requests');
       }
       

@@ -1,14 +1,11 @@
-/**
- * useTokenApproval Hook - REFACTORED
- * ✅ Fixed: Default to exact amount, better error handling, user confirmations
- */
+// ✅ REFACTORED: useTokenApproval.js - Critical Fix #4
+// Exponential backoff polling to prevent RPC rate limiting
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { logger } from '../utils/logger';
 
-// Standard ERC20 ABI
 const ERC20_ABI = [
   {
     name: 'allowance',
@@ -41,9 +38,6 @@ export const ApprovalStatus = {
   ERROR: 'error'
 };
 
-/**
- * REFACTORED: Secure token approval hook
- */
 export const useTokenApproval = ({
   tokenAddress,
   ownerAddress,
@@ -55,9 +49,11 @@ export const useTokenApproval = ({
   const [status, setStatus] = useState(ApprovalStatus.UNKNOWN);
   const [error, setError] = useState(null);
   const [showUnlimitedWarning, setShowUnlimitedWarning] = useState(false);
-
+  
+  const pollingTimeoutRef = useRef(null);
+  
   const skipApproval = isNative || !tokenAddress || !ownerAddress || !spenderAddress;
-
+  
   // Read current allowance
   const { 
     data: currentAllowance, 
@@ -73,7 +69,7 @@ export const useTokenApproval = ({
       enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress
     }
   });
-
+  
   // Write approval
   const { 
     writeContract: approve,
@@ -82,7 +78,7 @@ export const useTokenApproval = ({
     error: approvalError,
     reset: resetApproval
   } = useWriteContract();
-
+  
   // Wait for confirmation
   const { 
     isLoading: isConfirming, 
@@ -90,7 +86,7 @@ export const useTokenApproval = ({
   } = useWaitForTransactionReceipt({
     hash: approvalTxHash
   });
-
+  
   // Calculate required amount
   const requiredAmount = useCallback(() => {
     if (!amount || isNaN(parseFloat(amount))) return BigInt(0);
@@ -101,7 +97,7 @@ export const useTokenApproval = ({
       return BigInt(0);
     }
   }, [amount, decimals]);
-
+  
   // Check if approval needed
   const needsApproval = useCallback(() => {
     if (skipApproval) return false;
@@ -110,34 +106,33 @@ export const useTokenApproval = ({
     const required = requiredAmount();
     return currentAllowance < required;
   }, [skipApproval, currentAllowance, requiredAmount]);
-
+  
   // Update status
   useEffect(() => {
     if (skipApproval) {
       setStatus(ApprovalStatus.APPROVED);
       return;
     }
-
+    
     if (isCheckingAllowance) {
       setStatus(ApprovalStatus.CHECKING);
       return;
     }
-
+    
     if (allowanceError) {
       setStatus(ApprovalStatus.ERROR);
       setError('Failed to check allowance');
       return;
     }
-
+    
     if (isApproving || isConfirming) {
       setStatus(ApprovalStatus.PENDING);
       return;
     }
-
+    
     if (approvalError) {
       setStatus(ApprovalStatus.ERROR);
       
-      // User-friendly error messages
       if (approvalError.message?.includes('User rejected') ||
           approvalError.message?.includes('User denied')) {
         setError('Approval cancelled by user');
@@ -146,7 +141,7 @@ export const useTokenApproval = ({
       }
       return;
     }
-
+    
     if (needsApproval()) {
       setStatus(ApprovalStatus.NEEDED);
     } else {
@@ -161,20 +156,26 @@ export const useTokenApproval = ({
     approvalError, 
     needsApproval
   ]);
-
-  // ✅ CRITICAL FIX #4: Exponential backoff polling
-  // Prevents RPC rate limiting and wallet disconnections
+  
+  /**
+   * ✅ CRITICAL FIX #4: Exponential backoff polling
+   * Prevents RPC rate limiting and wallet disconnections
+   */
   useEffect(() => {
     if (isApprovalConfirmed) {
       logger.log('✅ Approval confirmed, starting smart polling...');
       
+      // ✅ Clear any existing polling timeout
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
+      }
+      
       // Immediate refetch
       refetchAllowance();
       
-      // Exponential backoff polling
+      // ✅ FIX: Exponential backoff polling
       let pollAttempts = 0;
       const maxPolls = 5;
-      let pollingTimeout = null;
       
       const pollAllowance = () => {
         if (pollAttempts >= maxPolls) {
@@ -182,21 +183,21 @@ export const useTokenApproval = ({
           return;
         }
         
-        // Exponential backoff: 3s, 4.5s, 6.75s, 10s, 10s
+        // ✅ Exponential backoff: 3s, 4.5s, 6.75s, 10s, 10s
         const delay = Math.min(3000 * Math.pow(1.5, pollAttempts), 10000);
         
-        pollingTimeout = setTimeout(() => {
+        pollingTimeoutRef.current = setTimeout(() => {
           logger.log(`🔄 Polling attempt ${pollAttempts + 1}/${maxPolls} (delay: ${delay}ms)`);
           
           refetchAllowance()
             .then(result => {
-              // Stop polling if approval is detected
-              const required = requiredAmount();
-              if (result?.data && result.data >= required) {
+              // ✅ Stop polling if approval is detected
+              if (result.data && result.data >= requiredAmount()) {
                 logger.log('✅ Approval detected, stopping polling');
                 return;
               }
               
+              // Continue polling
               pollAttempts++;
               pollAllowance();
             })
@@ -211,33 +212,33 @@ export const useTokenApproval = ({
       // Start exponential backoff polling
       pollAllowance();
       
-      // Cleanup on unmount
+      // ✅ CRITICAL: Cleanup on unmount
       return () => {
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
+        if (pollingTimeoutRef.current) {
+          clearTimeout(pollingTimeoutRef.current);
+          pollingTimeoutRef.current = null;
         }
       };
     }
   }, [isApprovalConfirmed, refetchAllowance, requiredAmount]);
-
+  
   /**
-   * FIXED: Default to EXACT amount (safer)
-   * Requires user confirmation for unlimited
+   * Request approval with enhanced security warnings
    */
   const requestApproval = useCallback(async (unlimited = false, onUnlimitedRequest) => {
     if (skipApproval) {
       logger.log('Skipping approval - native token');
       return { success: true, userCancelled: false };
     }
-
-    // Warn about unlimited approvals
+    
+    // ✅ Enhanced unlimited approval warning
     if (unlimited) {
       setShowUnlimitedWarning(true);
       
-      // Use callback for UI confirmation (better than window.confirm)
+      // Use callback for UI confirmation
       if (onUnlimitedRequest) {
         const confirmed = await onUnlimitedRequest({
-          tokenSymbol: 'TOKEN', // Would come from token data
+          tokenSymbol: 'TOKEN',
           spenderName: 'LI.FI Router',
           risk: 'HIGH'
         });
@@ -248,7 +249,7 @@ export const useTokenApproval = ({
           return { success: false, userCancelled: true };
         }
       } else {
-        // ✅ CRITICAL FIX #6: Enhanced security warning
+        // ✅ Enhanced browser confirm with stronger warning
         const confirmed = confirm(
           '⛔ CRITICAL SECURITY WARNING\n\n' +
           'You are about to approve UNLIMITED access to your tokens.\n\n' +
@@ -268,12 +269,12 @@ export const useTokenApproval = ({
       
       setShowUnlimitedWarning(false);
     }
-
+    
     setError(null);
     resetApproval();
-
+    
     try {
-      // ✅ CRITICAL FIX: Add 1% buffer for exact approvals to prevent rounding issues
+      // ✅ Add 1% buffer for exact approvals
       let approvalAmount;
       
       if (unlimited) {
@@ -294,24 +295,22 @@ export const useTokenApproval = ({
         token: tokenAddress,
         spender: spenderAddress,
         amount: unlimited ? 'Unlimited ⚠️' : formatUnits(approvalAmount, decimals),
-        security: unlimited ? 'HIGH RISK' : '✅ SAFE (exact + 1% buffer)'
+        security: unlimited ? '🔴 HIGH RISK' : '✅ SAFE (exact + 1% buffer)'
       });
-
-      // Wagmi v2: writeContract returns a promise
+      
       const hash = await approve({
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spenderAddress, approvalAmount]
       });
-
+      
       logger.log('✅ Approval transaction submitted:', hash);
       return { success: true, hash, userCancelled: false };
-
+      
     } catch (err) {
       logger.error('❌ Approval failed:', err);
       
-      // Handle user rejection separately
       if (err.message?.includes('User rejected') || 
           err.message?.includes('User denied')) {
         setError('Approval cancelled by user');
@@ -322,13 +321,13 @@ export const useTokenApproval = ({
       return { success: false, userCancelled: false, error: err };
     }
   }, [skipApproval, tokenAddress, spenderAddress, decimals, requiredAmount, approve, resetApproval]);
-
+  
   /**
    * Revoke approval (set to 0)
    */
   const revokeApproval = useCallback(async () => {
     if (skipApproval) return;
-
+    
     try {
       const hash = await approve({
         address: tokenAddress,
@@ -343,15 +342,15 @@ export const useTokenApproval = ({
       setError(err.message);
     }
   }, [skipApproval, tokenAddress, spenderAddress, approve]);
-
+  
   /**
-   * Reset error state (useful for retry)
+   * Reset error state
    */
   const resetError = useCallback(() => {
     setError(null);
     resetApproval();
   }, [resetApproval]);
-
+  
   return {
     status,
     error,

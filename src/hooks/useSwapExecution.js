@@ -48,13 +48,22 @@ export const useSwapExecution = () => {
       logger.log(`📊 Multi-step route (${route.steps.length} steps) - using 50%+ buffer`);
     }
 
-    // ✅ Certain bridges are gas-intensive
+    // ✅ CRITICAL FIX #3: Proper buffers for complex bridges
     const tool = route.steps?.[0]?.tool?.toLowerCase();
-    const gasCrazyBridges = ['stargate', 'cbridge', 'across', 'hop', 'synapse'];
+    const gasCrazyBridges = {
+      'stargate': 220n,   // 120% buffer (critical for Stargate)
+      'cbridge': 210n,    // 110% buffer
+      'across': 200n,     // 100% buffer
+      'hop': 190n,        // 90% buffer
+      'synapse': 200n,    // 100% buffer
+      'connext': 190n,    // 90% buffer
+      'hyphen': 180n,     // 80% buffer
+      'multichain': 180n, // 80% buffer
+    };
 
-    if (tool && gasCrazyBridges.includes(tool)) {
-      bufferMultiplier = 180n; // 80% buffer for complex bridges
-      logger.log(`📊 Complex bridge detected (${tool}) - using 80% buffer`);
+    if (tool && gasCrazyBridges[tool]) {
+      bufferMultiplier = gasCrazyBridges[tool];
+      logger.log(`📊 Complex bridge detected (${tool}) - using ${Number(bufferMultiplier - 100n)}% buffer`);
     }
 
     const gasWithBuffer = (baseGas * bufferMultiplier) / 100n;
@@ -128,6 +137,36 @@ export const useSwapExecution = () => {
   }, [publicClient, walletAddress, chain]);
 
   /**
+   * ✅ CRITICAL FIX #2: Enhanced route freshness validation
+   * Prevents execution with stale quotes that could cause slippage failures
+   */
+  const validateRouteFreshness = useCallback((route) => {
+    if (!route?.timestamp) {
+      throw new Error('Invalid route: missing timestamp. Please refresh and try again.');
+    }
+    
+    const routeAge = Date.now() - route.timestamp;
+    const MAX_ROUTE_AGE = 45000; // 45s (was 60s) for safety margin
+    
+    if (routeAge > MAX_ROUTE_AGE) {
+      const ageInSeconds = Math.round(routeAge / 1000);
+      throw new Error(
+        `Quote expired (${ageInSeconds}s old). ` +
+        `Quotes are only valid for 45s. Please refresh.`
+      );
+    }
+    
+    // Warn if approaching expiration
+    if (routeAge > 30000) {
+      const remainingSeconds = Math.round((MAX_ROUTE_AGE - routeAge) / 1000);
+      logger.warn(`⚠️ Quote expires in ${remainingSeconds}s`);
+    }
+    
+    logger.log(`✅ Route freshness validated (${Math.round(routeAge / 1000)}s old)`);
+    return true;
+  }, []);
+
+  /**
    * Check if router address is approved (whitelisted)
    */
   const isApprovedRouter = useCallback((address, chainId) => {
@@ -164,6 +203,9 @@ export const useSwapExecution = () => {
       if (!selectedRoute) throw new Error('No route selected');
       if (!fromToken || !toToken) throw new Error('Invalid tokens');
       if (!hasSufficientBalance) throw new Error('Insufficient balance');
+      
+      // ✅ CRITICAL FIX #2: Validate route freshness FIRST
+      validateRouteFreshness(selectedRoute);
 
       // 2. Chain enforcement
       const routeChainId = fromToken.chainId;
@@ -173,16 +215,23 @@ export const useSwapExecution = () => {
 
         try {
           await switchChainAsync({ chainId: routeChainId });
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for wallet
+          await new Promise(resolve => setTimeout(resolve, 1500)); // Wait for wallet
+          
+          // ✅ CRITICAL FIX #2: Re-validate route freshness after chain switch
+          validateRouteFreshness(selectedRoute);
+          
+          // ✅ Issue #13: Verify chain switch was successful
+          // Note: chain state may not update immediately, so we rely on the wallet
         } catch (error) {
           throw new Error('Network switch required. Please switch manually and try again.');
         }
       }
 
-      // 3. Validate route freshness
+      // 3. Route freshness already validated by validateRouteFreshness above
+      // This legacy check is kept as a backup but uses the new 45s threshold
       if (selectedRoute.timestamp) {
         const routeAge = Date.now() - selectedRoute.timestamp;
-        const MAX_ROUTE_AGE = 60000; // 1 minute
+        const MAX_ROUTE_AGE = 45000; // ✅ Updated to 45s for consistency
 
         if (routeAge > MAX_ROUTE_AGE) {
           throw new Error(
@@ -274,6 +323,9 @@ export const useSwapExecution = () => {
       setExecutionState({ status: 'sending', step: 'Waiting for wallet confirmation', error: null });
 
       logger.log('📤 Sending transaction:', txParams);
+      
+      // ✅ CRITICAL FIX #2: Final freshness check right before sending
+      validateRouteFreshness(selectedRoute);
 
       let hash;
       try {
@@ -431,6 +483,7 @@ export const useSwapExecution = () => {
     isApprovedRouter,
     calculateGasWithBuffer,
     validateBalanceWithGas,
+    validateRouteFreshness,
     monitorTransaction
   ]);
 
