@@ -575,34 +575,35 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     routePreference
   ]);
 
-  // ========== DEBOUNCED ROUTE FETCHING ==========
+  // ========== DEBOUNCED AMOUNT LOGIC ==========
+  // 1. Store debounced amount separately
+  const [debouncedAmount, setDebouncedAmount] = useState(fromAmount);
+
+  // 2. Update debounced amount with delay
   useEffect(() => {
-    // Modified: Allow fetching if wallet is not connected (Guest Mode)
-    if (!fromAmount || parseFloat(fromAmount) <= 0) {
+    const handler = setTimeout(() => {
+      setDebouncedAmount(fromAmount);
+    }, DEBOUNCE_DELAY);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [fromAmount]);
+
+  // 3. Fetch routes when debounced amount (or other params) changes
+  useEffect(() => {
+    // Skip if amount is invalid
+    if (!debouncedAmount || parseFloat(debouncedAmount) <= 0) {
       setRoutes([]);
       setSelectedRoute(null);
       setError(null);
       return;
     }
 
-    // Clear any existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
+    logger.log('🔄 Auto-refresh triggered by change:', { debouncedAmount, chain: fromChain.name });
+    fetchRoutes(false);
 
-    // Set new timer
-    debounceTimerRef.current = setTimeout(() => {
-      logger.log('⏱️ Debounce timer fired, fetching routes...');
-      fetchRoutes(false);
-    }, DEBOUNCE_DELAY);
-
-    // Cleanup
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [fetchRoutes, fromAmount]);
+  }, [debouncedAmount, fetchRoutes]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
   useEffect(() => {
