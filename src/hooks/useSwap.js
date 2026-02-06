@@ -621,55 +621,27 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     };
   }, [fromAmount]);
 
-  // ========== DEBUG: TRACK TRIGGER ==========
-  const prevDeps = useRef({
-    debouncedAmount, 
-    fromChainId: fromChain?.id, 
-    toChainId: toChain?.id, 
-    fromTokenAddr: fromToken?.address, 
-    toTokenAddr: toToken?.address
-  });
-
+  // 3. Fetch routes ONLY when valid triggers change
   useEffect(() => {
-    const changes = [];
-    if (prevDeps.current.debouncedAmount !== debouncedAmount) changes.push(`amount: ${prevDeps.current.debouncedAmount} -> ${debouncedAmount}`);
-    if (prevDeps.current.fromChainId !== fromChain?.id) changes.push(`fromChain: ${prevDeps.current.fromChainId} -> ${fromChain?.id}`);
-    if (prevDeps.current.toChainId !== toChain?.id) changes.push(`toChain: ${prevDeps.current.toChainId} -> ${toChain?.id}`);
-    if (prevDeps.current.fromTokenAddr !== fromToken?.address) changes.push(`fromToken: ${prevDeps.current.fromTokenAddr} -> ${fromToken?.address}`);
-    if (prevDeps.current.toTokenAddr !== toToken?.address) changes.push(`toToken: ${prevDeps.current.toTokenAddr} -> ${toToken?.address}`);
-    
-    if (changes.length > 0) {
-        logger.log('🔄 Auto-fetch trigger:', changes.join(', '));
-        prevDeps.current = {
-            debouncedAmount, 
-            fromChainId: fromChain?.id, 
-            toChainId: toChain?.id, 
-            fromTokenAddr: fromToken?.address, 
-            toTokenAddr: toToken?.address
-        };
-        
-        // Skip if amount is invalid
-        if (!debouncedAmount || parseFloat(debouncedAmount) <= 0) {
-            setRoutes([]);
-            setSelectedRoute(null);
-            setError(null);
-            return;
-        }
-    
-        logger.log('🚀 Triggering auto-fetch for:', debouncedAmount);
-        
-        // Call the latest fetchRoutes safely
-        if (fetchRoutesRef.current) {
-            fetchRoutesRef.current(false);
-        }
+    // Skip if amount is invalid
+    if (!debouncedAmount || parseFloat(debouncedAmount) <= 0) {
+      setRoutes([]);
+      setSelectedRoute(null);
+      setError(null);
+      return;
     }
+
+    // Call the latest fetchRoutes safely
+    if (fetchRoutesRef.current) {
+        fetchRoutesRef.current(false);
+    }
+
   }, [
     debouncedAmount, 
     fromChain?.id, 
     toChain?.id, 
     fromToken?.address, 
     toToken?.address
-    // Removed slippage to prevent infinite loop (AutoSlippage updates slippage -> fetch -> new route -> AutoSlippage -> ...)
   ]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
