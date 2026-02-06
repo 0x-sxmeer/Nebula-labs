@@ -436,3 +436,6 @@ export default {
   fetchTokenBalance,
   estimateTotalCost,
 };
+
+// ✅ Alias for backward compatibility with useSwap.js import
+export const estimateGasCost = estimateSwapGasCost;
