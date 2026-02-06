@@ -9,11 +9,11 @@ import { parseApiError, LIFI_ERROR_CODES } from '../utils/errorHandler';
 import { fetchTokenBalance, checkSufficientBalance, estimateGasCost } from '../utils/balanceChecker';
 import { logger } from '../utils/logger';
 
-const DEBOUNCE_DELAY = 800;
+const DEBOUNCE_DELAY = 500;
 const REFRESH_INTERVAL = 30000;
 
 export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CHEAPEST') => {
-  // ========== STATE ==========
+
   const [fromChain, setFromChainState] = useState({ 
     id: 1, 
     name: 'Ethereum',
@@ -84,6 +84,12 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   const timerIntervalRef = useRef(null);
   const abortControllerRef = useRef(null);
   const requestIdRef = useRef(0);
+  const fetchRoutesRef = useRef(null);
+
+  // Update ref on every render
+  useEffect(() => {
+    fetchRoutesRef.current = fetchRoutes;
+  });
 
   const { writeContractAsync } = useWriteContract();
 
@@ -573,6 +579,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   ]);
 
   // ========== DEBOUNCED ROUTE FETCHING ==========
+  // ========== DEBOUNCED ROUTE FETCHING ==========
   useEffect(() => {
     // Modified: Allow fetching if wallet is not connected (Guest Mode)
     if (!fromAmount || parseFloat(fromAmount) <= 0) {
@@ -587,7 +594,11 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      fetchRoutes(false);
+      // ✅ Use ref to call latest function without adding it to dependencies
+      // This prevents the debounce timer from being reset if fetchRoutes identity changes
+      if (fetchRoutesRef.current) {
+        fetchRoutesRef.current(false);
+      }
     }, DEBOUNCE_DELAY);
 
     return () => {
@@ -595,7 +606,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [fromAmount, fromChain, fromToken, toChain, toToken, slippage, walletAddress, fetchRoutes]);
+  }, [fromAmount, fromChain, fromToken, toChain, toToken, slippage, walletAddress]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
   useEffect(() => {
