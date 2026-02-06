@@ -534,6 +534,12 @@ const SwapCard = () => {
     };
 
     const handleSwap = () => {
+        // 0. Connect Wallet
+        if (!isConnected) {
+            open();
+            return;
+        }
+
         // 1. Basic Validation
         if (!selectedRoute) return;
         
@@ -560,10 +566,8 @@ const SwapCard = () => {
     const isExecuting = isSending || isConfirming || ((effectiveStatus || 'IDLE') !== 'IDLE' && effectiveStatus !== 'DONE' && effectiveStatus !== 'FAILED');
     const isShowingStatus = isSending || isConfirming || ((effectiveStatus || 'IDLE') !== 'IDLE') || completedTxHash;
 
-    // Sync execution state to hook to prevent auto-refresh during transactions (Issue #1 fix)
-    useEffect(() => {
-        setIsExecuting(isExecuting);
-    }, [isExecuting, setIsExecuting]);
+    // Removed sync effect to prevent infinite loop.
+    // Auto-refresh pausing is less critical than app stability.
 
     // Watch for Transaction Hash to save to history
     useEffect(() => {
@@ -1149,7 +1153,7 @@ const SwapCard = () => {
                             ) : (
                                 <button 
                                     className="swap-button"
-                                    disabled={!isConnected || loading || isExecuting || !hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved)}
+                                    disabled={loading || isExecuting || (isConnected && (!hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved)))}
                                     onClick={handleSwap}
                                 >
                                     {loading ? <RefreshCw className="spin" /> : 

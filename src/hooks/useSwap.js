@@ -394,14 +394,15 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
    * FIXED: Proper abort controller integration
    */
   const fetchRoutes = useCallback(async (silent = false) => {
-    // Validation
-    if (!fromChain || !toChain || !fromToken || !toToken || !fromAmount || parseFloat(fromAmount) <= 0 || !walletAddress) {
+    // Validation - Allow fetching without walletAddress (Guest Mode)
+    if (!fromChain || !toChain || !fromToken || !toToken || !fromAmount || parseFloat(fromAmount) <= 0) {
       if (!silent) {
         setRoutes([]);
         setSelectedRoute(null);
       }
       return;
     }
+
 
     // ✅ CRITICAL FIX #1: Abort and cleanup previous request
     if (abortControllerRef.current) {
@@ -433,11 +434,10 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       const routeParams = {
         fromChainId: fromChain.id,
         fromTokenAddress: fromToken.address,
-        fromAddress: walletAddress,
-        fromAmount: amountInSmallestUnit,
-        toChainId: toChain.id,
         toTokenAddress: toToken.address,
-        toAddress: customToAddress || walletAddress,
+        // Use user address or zero address for guest estimation
+        fromAddress: walletAddress || '0x0000000000000000000000000000000000000000',
+        toAddress: customToAddress || walletAddress || '0x0000000000000000000000000000000000000000',
         slippage,
         options: {
           order: routePreference === 'return' ? 'CHEAPEST' : 
@@ -572,7 +572,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
 
   // ========== DEBOUNCED ROUTE FETCHING ==========
   useEffect(() => {
-    if (!fromAmount || parseFloat(fromAmount) <= 0 || !walletAddress) {
+    // Modified: Allow fetching if wallet is not connected (Guest Mode)
+    if (!fromAmount || parseFloat(fromAmount) <= 0) {
       setRoutes([]);
       setSelectedRoute(null);
       setError(null);
@@ -612,7 +613,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
 
     // Silent refresh interval
     refreshIntervalRef.current = setInterval(() => {
-      if (fromAmount && parseFloat(fromAmount) > 0 && walletAddress && !loading) {
+      // Modified: Allow refresh without wallet
+      if (fromAmount && parseFloat(fromAmount) > 0 && !loading) {
         fetchRoutes(true); // Silent refresh
       }
     }, REFRESH_INTERVAL);
