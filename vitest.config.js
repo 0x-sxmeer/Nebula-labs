@@ -7,5 +7,13 @@ export default defineConfig({
     environment: 'happy-dom',
     globals: true,
     setupFiles: './src/test/setup.js',
+    coverage: {
+      reporter: ['text', 'json', 'html'],
+      lines: 70,
+      functions: 70,
+      branches: 70,
+      statements: 70,
+      exclude: ['src/test/**'] 
+    }
   },
 });

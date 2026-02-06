@@ -57,6 +57,34 @@ export const useSwapHistory = (walletAddress) => {
         return swapHistoryService.getExplorerUrl(chainId, txHash);
     }, []);
 
+    /**
+     * Export history to CSV
+     */
+    const exportToCSV = useCallback(() => {
+        const headers = ['Date', 'From Token', 'Amount', 'To Token', 'Amount', 'Status', 'Tx Hash', 'Explorer URL'];
+        const rows = history.map(item => [
+            new Date(item.timestamp).toISOString(),
+            item.fromToken?.symbol || 'Unknown',
+            item.fromAmount || '0',
+            item.toToken?.symbol || 'Unknown',
+            item.toAmount || '0',
+            item.status,
+            item.id,
+            swapHistoryService.getExplorerUrl(item.fromChain?.id, item.id)
+        ]);
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `nebula_swap_history_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }, [history]);
+
     return {
         history,
         isLoading,
@@ -64,6 +92,7 @@ export const useSwapHistory = (walletAddress) => {
         updateStatus,
         clearHistory,
         getExplorerUrl,
+        exportToCSV, // ✅ Expose export function
         isEmpty: history.length === 0
     };
 };

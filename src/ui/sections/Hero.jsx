@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 // Draggable Floating Token Component with JS-based "True Wandering"
 
 
+import RecentSwaps from './RecentSwaps';
+
 const Hero = () => {
     const partners = [
         { name: 'Chainlink', url: 'https://cdn.prod.website-files.com/6649e26c9fdc8739cefdc48e/6649fe6e46e4c0897ba16dad_chainlink.svg' },
@@ -303,6 +305,11 @@ const Hero = () => {
                     <Stat value="150+" label="DEXs Integrated" />
                     <Stat value="0.1%" label="Average Fee" />
                 </div>
+            </Reveal>
+
+            {/* Issue #14: Recent Swaps Feed (Social Proof) */}
+            <Reveal delay={0.4}>
+                <RecentSwaps />
             </Reveal>
 
             {/* Partner Logos */}

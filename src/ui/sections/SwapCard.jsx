@@ -12,6 +12,7 @@ import ErrorBoundary from '../shared/ErrorBoundary';
 import useSwap from '../../hooks/useSwap';
 import { useSwapHistory } from '../../hooks/useSwapHistory';
 import { useTokenApproval, ApprovalStatus } from '../../hooks/useTokenApproval';
+import { RouteCardSkeleton } from '../../components/SkeletonLoaders';
 import { useSwapExecution } from '../../hooks/useSwapExecution';
 import { useTransactionStatus } from '../../hooks/useTransactionStatus';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
@@ -25,7 +26,7 @@ import { logger } from '../../utils/logger';
 import { LARGE_CHAIN_ID_THRESHOLD, NATIVE_TOKEN_ADDRESS } from '../../config/lifi.config';
 import { formatUnits } from 'viem';
 import { isValidAddress } from '../../utils/securityHelpers';
-import { validateAmount, validateSlippage, validateRoute } from '../../utils/validation';
+import { validateAmount, validateSlippage, validateRoute, sanitizeNumericInput } from '../../utils/validation';
 import { getRecommendedSlippage } from '../../utils/slippageValidator';
 import './SwapCard.css';
 import './SwapCard_Tools.css';
@@ -503,6 +504,7 @@ const SwapCard = () => {
                 fromAmount,
                 hasSufficientBalance, // Note: this might be stale if balance changed this second, but safe enough
                 checkBalance,
+                isApproved, // ✅ CRITICAL: Enforce logic-layer approval check
             });
             if (result?.hash) {
                 setCompletedTxHash(result.hash);
@@ -716,12 +718,38 @@ const SwapCard = () => {
                                                 placeholder="0" 
                                                 value={fromAmount}
                                                 onChange={(e) => {
-                                                    if (e.target.value === '' || /^\d*\.?\d*$/.test(e.target.value)) {
-                                                        setFromAmount(e.target.value);
-                                                        if (executionError) setExecutionError(null); // Clear error on type
+                                                    const rawValue = e.target.value;
+                                                    // Allow empty for clearing, otherwise sanitize
+                                                    const sanitized = rawValue === '' ? '' : sanitizeNumericInput(rawValue, fromToken?.decimals || 18);
+                                                    // Only update if sanitized is valid or empty
+                                                    if (rawValue === '' || sanitized !== '') {
+                                                        setFromAmount(sanitized || rawValue);
+                                                        if (executionError) setExecutionError(null);
                                                     }
                                                 }}
                                             />
+                                            {/* MAX Button */}
+                                            <button
+                                                className="max-btn"
+                                                onClick={() => {
+                                                    if (balance?.value && fromToken) {
+                                                        if (isNativeToken) {
+                                                            // Reserve 0.01 for gas on native tokens
+                                                            const reserveForGas = BigInt('10000000000000000'); // 0.01 ETH
+                                                            const maxVal = balance.value > reserveForGas 
+                                                                ? formatUnits(balance.value - reserveForGas, fromToken.decimals)
+                                                                : '0';
+                                                            setFromAmount(maxVal);
+                                                        } else {
+                                                            setFromAmount(formatUnits(balance.value, fromToken.decimals));
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={!balance?.value || loadingBalance}
+                                                title="Use maximum balance"
+                                            >
+                                                MAX
+                                            </button>
                                             <ChainTokenSelector 
                                                 selectedChain={fromChain}
                                                 selectedToken={fromToken}
@@ -1183,37 +1211,60 @@ const SwapCard = () => {
                             {/* Errors */}
                             {(error || executionError || approvalError || (statusError && status !== 'DONE')) && (
                                 <motion.div 
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    style={{ background: 'rgba(255, 82, 82, 0.1)', border: '1px solid var(--error)', padding: '10px', borderRadius: '8px', marginTop: '10px', display: 'flex', flexDirection:'column', gap: '8px', color: 'var(--error)', fontSize: '0.85rem' }}
+                                    initial={{ opacity: 0, y: 10 }} 
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="error-recovery-panel"
                                 >
-                                    <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                                        <AlertCircle size={16} />
-                                        <span>{executionError?.message || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}</span>
-                                    </div>
+                                    <h4>
+                                        <AlertCircle size={18} />
+                                        {executionError?.title || 'Error'}
+                                    </h4>
+                                    <p>{executionError?.message || approvalError || error?.message || (typeof statusError === 'object' ? statusError?.message : statusError)}</p>
                                     
-                                    {/* Retry Action */}
+                                    {/* Recovery Actions */}
                                     {(executionError?.recoverable || error) && (
-                                        <button 
-                                            onClick={() => {
+                                        <div className="recovery-actions">
+                                            <button onClick={() => {
                                                 setExecutionError(null);
                                                 refreshRoutes(true);
-                                            }}
-                                            style={{
-                                                alignSelf: 'flex-end',
-                                                background: 'rgba(255, 255, 255, 0.1)',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                padding: '4px 8px',
-                                                color: 'white',
-                                                fontSize: '0.75rem',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px'
-                                            }}
-                                        >
-                                            <RotateCcw size={12} /> Retry
-                                        </button>
+                                            }}>
+                                                <RefreshCw size={14} />
+                                                Refresh Routes
+                                            </button>
+                                            
+                                            <button onClick={() => {
+                                                setExecutionError(null);
+                                                // Small delay then retry swap
+                                                setTimeout(() => handleSwap(), 100);
+                                            }}>
+                                                <RotateCcw size={14} />
+                                                Try Again
+                                            </button>
+                                            
+                                            {/* Context-specific actions */}
+                                            {executionError?.message?.toLowerCase().includes('slippage') && (
+                                                <button onClick={() => {
+                                                    const newSlippage = Math.min(parseFloat(customSlippage) + 0.5, 10);
+                                                    setCustomSlippage(String(newSlippage));
+                                                    setSlippage(newSlippage / 100);
+                                                    setExecutionError(null);
+                                                    refreshRoutes(true);
+                                                }}>
+                                                    <TrendingUp size={14} />
+                                                    Increase Slippage
+                                                </button>
+                                            )}
+                                            
+                                            {executionError?.message?.toLowerCase().includes('balance') && (
+                                                <button onClick={() => {
+                                                    checkBalance();
+                                                    setExecutionError(null);
+                                                }}>
+                                                    <Wallet size={14} />
+                                                    Refresh Balance
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                 </motion.div>
                             )}

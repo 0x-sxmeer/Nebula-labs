@@ -926,3 +926,257 @@
     font-size: 0.75rem;
   }
 }
+
+/* =========================================
+   MAX BUTTON STYLES
+   ========================================= */
+
+.max-btn {
+  padding: 6px 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.max-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.max-btn:active:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.max-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #2a2a32 0%, #1a1a22 100%);
+}
+
+/* =========================================
+   TABLET BREAKPOINT (768px)
+   ========================================= */
+
+@media (max-width: 768px) {
+  .swap-card-wrapper {
+    max-width: calc(100vw - 32px);
+  }
+  
+  .route-details-box {
+    flex-direction: column;
+  }
+  
+  .net-value-row {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+}
+
+/* =========================================
+   TOUCH-FRIENDLY SIZING (Mobile/Tablet)
+   ========================================= */
+
+@media (hover: none) and (pointer: coarse) {
+  /* Apple HIG: minimum 44px touch targets */
+  button,
+  .icon-button,
+  .switch-button,
+  .max-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .max-btn {
+    padding: 10px 16px;
+    font-size: 0.75rem;
+  }
+  
+  .swap-button {
+    padding: 18px;
+  }
+  
+  /* Larger touch area for selector buttons */
+  .chain-token-selector {
+    min-height: 48px;
+  }
+  
+  /* Prevent accidental double-taps */
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/* =========================================
+   ERROR RECOVERY UI
+   ========================================= */
+
+.error-recovery-panel {
+  background: rgba(244, 67, 54, 0.08);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.error-recovery-panel h4 {
+  color: #f44336;
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.error-recovery-panel p {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recovery-actions button {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recovery-actions button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.recovery-actions button:first-child {
+  background: var(--primary-gradient);
+  border-color: transparent;
+}
+
+.recovery-actions button:first-child:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--primary-glow);
+  color: white;
+}
+
+/* =========================================
+   SMALL MOBILE (375px - iPhone SE)
+   ========================================= */
+
+@media (max-width: 375px) {
+  .swap-card-inner {
+    padding: 16px;
+  }
+  
+  .amount-input {
+    font-size: 1.5rem;
+    width: 45%;
+  }
+  
+  .header-controls {
+    gap: 6px;
+  }
+  
+  .icon-button, .refresh-timer {
+    width: 34px;
+    height: 34px;
+  }
+  
+  .max-btn {
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    margin-left: 4px;
+  }
+  
+  .input-main-row {
+    gap: 8px;
+  }
+  
+  .recovery-actions {
+    flex-direction: column;
+  }
+  
+  .recovery-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+/* =========================================
+   SKELETON ANIMATIONS
+   ========================================= */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.05) 25%,
+    rgba(255,255,255,0.1) 50%,
+    rgba(255,255,255,0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+
+/* =========================================
+   UX IMPROVEMENT: MAX BUTTON (Issue #13)
+   ========================================= */
+.max-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--primary-gradient);
+  color: var(--bg-dark);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 5;
+}
+.max-btn:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
+}
+.max-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: #444;
+  color: #888;
+}

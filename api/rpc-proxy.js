@@ -167,6 +167,33 @@ export default async function handler(req, res) {
       params: req.body.params
     };
 
+
+    // CACHE CHECK (Server-Side)
+    // Only cache read-only methods that are safe to cache
+    const CACHEABLE_METHODS = ['eth_getBalance', 'eth_call', 'eth_gasPrice', 'eth_blockNumber', 'eth_chainId'];
+    let cacheKey = null;
+    let shouldCache = CACHEABLE_METHODS.includes(req.body.method);
+    
+    // Add Cache-Control headers for browser/CDN caching
+    if (shouldCache) {
+      res.setHeader('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=10');
+      
+      try {
+        // Construct unique cache key
+        const paramStr = req.body.params ? JSON.stringify(req.body.params) : '[]';
+        cacheKey = `rpc:${chainParam}:${req.body.method}:${paramStr}`;
+        
+        const cachedResult = await kv.get(cacheKey);
+        if (cachedResult) {
+          // Return cached response
+          res.setHeader('X-Cache', 'HIT');
+          return res.status(200).json(cachedResult);
+        }
+      } catch (e) {
+        console.warn('Cache read failed:', e);
+      }
+    }
+    
     // FAILOVER LOGIC
     let lastError;
     let success = false;
@@ -212,6 +239,20 @@ export default async function handler(req, res) {
     
     if (!success) {
         throw new Error(`All providers failed. Last error: ${lastError?.message}`);
+    }
+
+    // CACHE WRITE (Server-Side)
+    if (shouldCache && cacheKey && data && !data.error) {
+       try {
+         // Default TTL: 10 seconds for balance/calls, 5s for blockNumber
+         let ttl = 10;
+         if (req.body.method === 'eth_blockNumber') ttl = 5;
+         
+         await kv.set(cacheKey, data, { ex: ttl });
+         res.setHeader('X-Cache', 'MISS');
+       } catch (e) {
+         console.warn('Cache write failed:', e);
+       }
     }
 
     res.status(200).json(data);

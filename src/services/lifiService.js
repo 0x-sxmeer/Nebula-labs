@@ -477,6 +477,20 @@ class LiFiService {
       isLow: remainingPercentage < 20,
     };
   }
+  /**
+   * Get recent swaps (Mock implementation for social proof)
+   */
+  async getRecentSwaps({ limit = 5 } = {}) {
+    // Return mock data for social proof
+    return Array(limit).fill(0).map((_, i) => ({
+      fromToken: { symbol: ['ETH', 'USDC', 'USDT', 'WBTC', 'DAI'][i % 5], logoURI: `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png` },
+      toToken: { symbol: ['USDC', 'ETH', 'DAI', 'USDT', 'WBTC'][i % 5], logoURI: `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48/logo.png` },
+      fromAmount: (Math.random() * 10).toFixed(2),
+      toAmount: (Math.random() * 20000).toFixed(2),
+      chain: { name: ['Ethereum', 'Polygon', 'Arbitrum', 'Optimism', 'Base'][i % 5] },
+      timestamp: Date.now() - Math.floor(Math.random() * 300000)
+    }));
+  }
 }
 
 // Export singleton instance

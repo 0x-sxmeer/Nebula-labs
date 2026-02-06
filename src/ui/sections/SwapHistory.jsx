@@ -120,7 +120,7 @@ const HistoryItem = ({ item, getExplorerUrl }) => {
 };
 
 const SwapHistory = ({ walletAddress, isOpen, onClose }) => {
-    const { history, isLoading, clearHistory, getExplorerUrl, isEmpty } = useSwapHistory(walletAddress);
+    const { history, isLoading, clearHistory, getExplorerUrl, exportToCSV, isEmpty } = useSwapHistory(walletAddress);
     const [showConfirmClear, setShowConfirmClear] = useState(false);
 
     const handleClearHistory = () => {
@@ -155,30 +155,7 @@ const SwapHistory = ({ walletAddress, isOpen, onClose }) => {
                         {!isEmpty && (
                             <button 
                                 className="action-btn"
-                                onClick={() => {
-                                    const headers = ['Date', 'From Token', 'Amount', 'To Token', 'Amount', 'Status', 'Tx Hash'];
-                                    const rows = history.map(item => [
-                                        new Date(item.timestamp).toLocaleString(),
-                                        item.fromToken?.symbol,
-                                        item.fromAmount,
-                                        item.toToken?.symbol,
-                                        item.toAmount,
-                                        item.status,
-                                        item.id
-                                    ]);
-                                    
-                                    const csvContent = "data:text/csv;charset=utf-8," 
-                                        + headers.join(",") + "\n" 
-                                        + rows.map(e => e.join(",")).join("\n");
-                                        
-                                    const encodedUri = encodeURI(csvContent);
-                                    const link = document.createElement("a");
-                                    link.setAttribute("href", encodedUri);
-                                    link.setAttribute("download", "nebula_swap_history.csv");
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
-                                }}
+                                onClick={exportToCSV}
                                 title="Export CSV"
                             >
                                 <Download size={16} />

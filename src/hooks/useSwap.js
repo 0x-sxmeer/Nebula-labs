@@ -84,9 +84,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   const timerIntervalRef = useRef(null);
   const abortControllerRef = useRef(null);
   const requestIdRef = useRef(0);
-  // Update ref on every render
-  // No longer needed
-
+  // ✅ CRITICAL FIX #7: Use Ref for amount to stabilize callbacks
+  const fromAmountRef = useRef(fromAmount);
+  useEffect(() => { fromAmountRef.current = fromAmount; }, [fromAmount]);
 
   const { writeContractAsync } = useWriteContract();
 
@@ -205,6 +205,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     chainId: isEVMChain ? fromChain.id : undefined,
     query: {
       enabled: !!walletAddress && !!isEVMChain,
+      staleTime: 10_000, // ✅ CRITICAL FIX #6: Cache balance for 10s
+      gcTime: 30_000,    // Keep in memory for 30s
+      refetchInterval: 15_000, // Refresh every 15s instead of 3s
     },
   });
 
@@ -224,6 +227,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     chainId: isEVMChain ? fromChain.id : undefined,
     query: {
       enabled: !!walletAddress && !!isEVMChain && !!fromToken && fromToken.address !== NATIVE_TOKEN_ADDRESS,
+      staleTime: 10_000, // ✅ CRITICAL FIX #6: Cache balance for 10s
+      gcTime: 30_000,    // Keep in memory for 30s
+      refetchInterval: 15_000, // Refresh every 15s instead of 3s
     },
   });
 
@@ -233,7 +239,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
    * ✅ FIXED: Accounts for gas when checking native token balance
    */
   const checkBalance = useCallback(async () => {
-    if (!walletAddress || !fromToken || !fromAmount || parseFloat(fromAmount) <= 0 || !isEVMChain) {
+    const currentAmount = fromAmountRef.current; // Use Ref to avoid dependency change
+    if (!walletAddress || !fromToken || !currentAmount || parseFloat(currentAmount) <= 0 || !isEVMChain) {
       setBalance(null);
       setHasSufficientBalance(true);
       return;
@@ -274,7 +281,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       });
       
       // Parse swap amount
-      const swapAmount = parseUnits(fromAmount, fromToken.decimals);
+      // Parse swap amount
+      const swapAmount = parseUnits(currentAmount, fromToken.decimals);
       
       // ✅ CRITICAL FIX: For native tokens, reserve gas
       if (isNative) {
@@ -387,7 +395,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       setLoadingBalance(false);
     }
   }, [
-    walletAddress, fromToken, fromAmount, 
+    walletAddress, fromToken, /* fromAmount removed */ 
     selectedRoute, fromChain, isEVMChain, setError
     // Removed nativeBalance/tokenBalance from dependencies to prevent loops
     // Accessed via ref instead
@@ -413,8 +421,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
    * FIXED: Proper abort controller integration
    */
   const fetchRoutes = useCallback(async (silent = false) => {
+    const currentAmount = fromAmountRef.current;
     // Validation - Allow fetching without walletAddress (Guest Mode)
-    if (!fromChain || !toChain || !fromToken || !toToken || !fromAmount || parseFloat(fromAmount) <= 0) {
+    if (!fromChain || !toChain || !fromToken || !toToken || !currentAmount || parseFloat(currentAmount) <= 0) {
       if (!silent) {
         setRoutes([]);
         setSelectedRoute(null);
@@ -448,7 +457,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       setGasPrice(gasPrices);
 
       // Prepare route request
-      const amountInSmallestUnit = parseUnits(fromAmount, fromToken.decimals).toString();
+      // Prepare route request
+      const amountInSmallestUnit = parseUnits(currentAmount, fromToken.decimals).toString();
 
       const routeParams = {
         fromChainId: fromChain.id,
@@ -586,7 +596,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       setIsRefreshing(false);
     }
   }, [
-    fromAmount, fromChain, fromToken, toChain, toToken, slippage, 
+    // fromAmount removed for stability
+  ], [
+    /* fromAmount removed */ fromChain, fromToken, toChain, toToken, slippage, 
     walletAddress, disabledBridges, disabledExchanges, customToAddress, 
     routePreference
   ]);
@@ -675,9 +687,10 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   }, [autoRefresh, isExecuting, fromAmount, walletAddress, loading]);
 
   // ========== CHECK BALANCE ON CHANGES ==========
+  // ========== CHECK BALANCE ON CHANGES (DEBOUNCED) ==========
   useEffect(() => {
     checkBalance();
-  }, [checkBalance]);
+  }, [checkBalance, debouncedAmount]); // ✅ CRITICAL FIX: Debounce balance checks
 
   // ========== FETCH AVAILABLE TOOLS ==========
   useEffect(() => {

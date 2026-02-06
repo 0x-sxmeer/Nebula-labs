@@ -6,8 +6,9 @@ import { lifiService } from '../services/lifiService';
 import { logger } from '../utils/logger';
 import { NATIVE_TOKEN_ADDRESS } from '../config/lifi.config';
 import { APPROVED_LIFI_ROUTERS, GAS_LIMITS } from '../config/security';
-import useSwapMonitoring from './useSwapMonitoring';
+import { monitorTransaction } from './useSwapMonitoring';
 import { analytics } from '../services/analyticsService';
+import { celebrateSwapSuccess } from '../utils/celebration';
 
 /**
  * ✅ PRODUCTION VERSION: Comprehensive transaction validation and execution
@@ -40,6 +41,25 @@ export const useSwapExecution = () => {
     if (route.fromChainId !== route.toChainId) {
       bufferMultiplier = 150n; // 50% buffer
       logger.log('📊 Cross-chain swap detected - using 50% gas buffer');
+    }
+
+    // ✅ CRITICAL FIX #10: L2-specific gas buffers
+    const L2_GAS_BUFFERS = {
+      10: 180n,      // Optimism: 80% buffer (L1 data volatility)
+      8453: 180n,    // Base: 80% buffer
+      42161: 160n,   // Arbitrum: 60% buffer (more predictable)
+      59144: 180n,   // Linea: 80% buffer
+      534352: 180n,  // Scroll: 80% buffer
+    };
+
+    const fromChainId = route.fromChainId;
+    if (L2_GAS_BUFFERS[fromChainId]) {
+      // Use the higher of global/L2 buffer
+      const l2Buffer = L2_GAS_BUFFERS[fromChainId];
+      if (l2Buffer > bufferMultiplier) {
+        bufferMultiplier = l2Buffer;
+        logger.log(`📊 Using L2 gas buffer for chain ${fromChainId}: ${Number(bufferMultiplier - 100n)}%`);
+      }
     }
 
     // ✅ Multi-step routes need more gas
@@ -140,29 +160,38 @@ export const useSwapExecution = () => {
    * ✅ CRITICAL FIX #2: Enhanced route freshness validation
    * Prevents execution with stale quotes that could cause slippage failures
    */
-  const validateRouteFreshness = useCallback((route) => {
+  const validateRouteFreshness = useCallback((route, stage = 'initial') => {
     if (!route?.timestamp) {
       throw new Error('Invalid route: missing timestamp. Please refresh and try again.');
     }
     
     const routeAge = Date.now() - route.timestamp;
-    const MAX_ROUTE_AGE = 45000; // 45s (was 60s) for safety margin
     
-    if (routeAge > MAX_ROUTE_AGE) {
+    // ✅ CRITICAL FIX #8: Graduated freshness thresholds
+    const MAX_AGE = {
+      'initial': 60000,      // 60s - when user clicks "Swap"
+      'pre-send': 45000,     // 45s - right before sending tx (strict)
+      'monitoring': 90000,   // 90s - lenient for monitoring context
+    };
+    
+    const threshold = MAX_AGE[stage] || MAX_AGE.initial;
+    
+    if (routeAge > threshold) {
       const ageInSeconds = Math.round(routeAge / 1000);
       throw new Error(
         `Quote expired (${ageInSeconds}s old). ` +
-        `Quotes are only valid for 45s. Please refresh.`
+        `Max allowed for ${stage}: ${threshold/1000}s. Please refresh.`
       );
     }
     
     // Warn if approaching expiration
-    if (routeAge > 30000) {
-      const remainingSeconds = Math.round((MAX_ROUTE_AGE - routeAge) / 1000);
-      logger.warn(`⚠️ Quote expires in ${remainingSeconds}s`);
+    const warningThreshold = threshold - 15000;
+    if (routeAge > warningThreshold) {
+      const remainingSeconds = Math.round((threshold - routeAge) / 1000);
+      logger.warn(`⚠️ Quote expires in ${remainingSeconds}s (${stage})`);
     }
     
-    logger.log(`✅ Route freshness validated (${Math.round(routeAge / 1000)}s old)`);
+    logger.log(`✅ Route freshness validated for ${stage} (${Math.round(routeAge / 1000)}s old)`);
     return true;
   }, []);
 
@@ -195,6 +224,7 @@ export const useSwapExecution = () => {
     hasSufficientBalance,
     checkBalance,
     onHistoryUpdate, // ✅ NEW: Callback to update swap history
+    isApproved = true, // ✅ CRITICAL FIX #1: Approval status (default to true for safety/legacy)
   }) => {
     setExecutionState({ status: 'validating', step: 'Validating swap parameters', error: null });
 
@@ -203,9 +233,18 @@ export const useSwapExecution = () => {
       if (!selectedRoute) throw new Error('No route selected');
       if (!fromToken || !toToken) throw new Error('Invalid tokens');
       if (!hasSufficientBalance) throw new Error('Insufficient balance');
+
+      // ✅ CRITICAL FIX #1: Logic-layer Approval Check
+      // Prevent execution if token requires approval but isn't approved
+      const isNativeToken = fromToken.address === NATIVE_TOKEN_ADDRESS || 
+                       fromToken.address?.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
       
-      // ✅ CRITICAL FIX #2: Validate route freshness FIRST
-      validateRouteFreshness(selectedRoute);
+      if (!isNativeToken && isApproved === false) {
+        throw new Error(`Token ${fromToken.symbol} validation failed: Approval required`);
+      }
+      
+      // ✅ CRITICAL FIX #2: Validate route freshness FIRST (Lenient 60s)
+      validateRouteFreshness(selectedRoute, 'initial');
 
       // 2. Chain enforcement
       const routeChainId = fromToken.chainId;
@@ -217,8 +256,8 @@ export const useSwapExecution = () => {
           await switchChainAsync({ chainId: routeChainId });
           await new Promise(resolve => setTimeout(resolve, 1500)); // Wait for wallet
           
-          // ✅ CRITICAL FIX #2: Re-validate route freshness after chain switch
-          validateRouteFreshness(selectedRoute);
+          // ✅ CRITICAL FIX #2: Re-validate route freshness after chain switch (Lenient 60s allowed as user just interacted)
+          validateRouteFreshness(selectedRoute, 'initial');
           
           // ✅ Issue #13: Verify chain switch was successful
           // Note: chain state may not update immediately, so we rely on the wallet
@@ -228,18 +267,7 @@ export const useSwapExecution = () => {
       }
 
       // 3. Route freshness already validated by validateRouteFreshness above
-      // This legacy check is kept as a backup but uses the new 45s threshold
-      if (selectedRoute.timestamp) {
-        const routeAge = Date.now() - selectedRoute.timestamp;
-        const MAX_ROUTE_AGE = 45000; // ✅ Updated to 45s for consistency
-
-        if (routeAge > MAX_ROUTE_AGE) {
-          throw new Error(
-            `Quote expired (${Math.round(routeAge / 1000)}s old). ` +
-            'Please refresh to get current rates.'
-          );
-        }
-      }
+      // Legacy check removed in favor of graduated checks
 
       // 4. Re-check balance
       setExecutionState({ status: 'validating', step: 'Checking balance', error: null });
@@ -324,8 +352,8 @@ export const useSwapExecution = () => {
 
       logger.log('📤 Sending transaction:', txParams);
       
-      // ✅ CRITICAL FIX #2: Final freshness check right before sending
-      validateRouteFreshness(selectedRoute);
+      // ✅ CRITICAL FIX #2: Final freshness check right before sending (Strict 45s)
+      validateRouteFreshness(selectedRoute, 'pre-send');
 
       let hash;
       try {
@@ -383,14 +411,11 @@ export const useSwapExecution = () => {
         onComplete: (finalStatus) => {
           // ✅ Handle completion
           if (finalStatus.status === 'DONE') {
-            // Confetti celebration!
-            if (typeof window !== 'undefined' && window.confetti) {
-              window.confetti({
-                particleCount: 100,
-                spread: 70,
-                origin: { y: 0.6 }
-              });
-            }
+            // Confetti celebration (Enhanced)
+            celebrateSwapSuccess(
+              selectedRoute.toAmountFormatted,
+              toToken
+            );
 
             setExecutionState({
               status: 'success',
