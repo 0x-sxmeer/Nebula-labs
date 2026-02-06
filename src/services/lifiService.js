@@ -139,9 +139,15 @@ class LiFiService {
         const timeoutController = new AbortController();
         const timeoutId = setTimeout(() => timeoutController.abort(), 15000); // 15s timeout
         
-        const combinedSignal = externalSignal 
-            ? AbortSignal.any([externalSignal, timeoutController.signal])
-            : timeoutController.signal;
+        if (externalSignal) {
+             if (externalSignal.aborted) {
+                 timeoutController.abort();
+             } else {
+                 externalSignal.addEventListener('abort', () => timeoutController.abort());
+             }
+        }
+        
+        const combinedSignal = timeoutController.signal;
 
         // ✅ Always POST to the proxy
         const response = await fetch(this.baseUrl, {
