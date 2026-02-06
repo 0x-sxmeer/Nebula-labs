@@ -33,17 +33,16 @@ class LiFiService {
     }
     // ⚠️ DEV: Warn if no backend
     else if (import.meta.env.DEV) {
-        if (!this.backendUrl) {
-            logger.warn(
-                '⚠️ WARNING: No backend configured.\n' +
-                'Using direct API calls (insecure for production).\n' +
-                'Set VITE_BACKEND_API_URL to use backend proxy.'
-            );
-            this.useBackend = false;
-        } else {
-            this.useBackend = true;
-        }
-        this.baseUrl = this.backendUrl ? `${this.backendUrl}/lifi-proxy` : 'https://li.quest/v1';
+        // ✅ DEV: Always use local proxy to avoid CORS
+        // Even if VITE_BACKEND_API_URL is set (for Prod), we ignore it in Dev
+        // and route through Vite's server.proxy
+        logger.log('🔧 Dev Mode: Forcing local proxy usage to bypass CORS');
+        
+        // We must set useBackend = false because the Vite proxy is a "transparent" proxy
+        // It expects standard REST calls (GET /chains), NOT the "wrapped" POST body that
+        // the Vercel backend expects.
+        this.useBackend = false; 
+        this.baseUrl = '/lifi-proxy'; // Force local relative path
     }
     
     // ❌ NEVER set API key in client
