@@ -16,6 +16,7 @@ import { useSwapExecution } from '../../hooks/useSwapExecution';
 import { useTransactionStatus } from '../../hooks/useTransactionStatus';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { lifiService } from '../../services/lifiService';
 import { analytics } from '../../services/analyticsService';
 
@@ -125,6 +126,7 @@ const TermsModal = ({ onAccept }) => (
 
 const SwapCard = () => {
     const { address: walletAddress, isConnected, chain } = useAccount();
+    const { openConnectModal } = useConnectModal();
     const { sendTransaction, data: txHash, isPending: isSending, error: txError, reset: resetTx } = useSendTransaction();
     const [manualHash, setManualHash] = useState(null);
     const activeHash = txHash || manualHash;
@@ -536,7 +538,16 @@ const SwapCard = () => {
     const handleSwap = () => {
         // 0. Connect Wallet
         if (!isConnected) {
-            open();
+            if (openConnectModal) {
+                openConnectModal();
+            } else {
+                logger.error('Connect modal not available');
+                setExecutionError({
+                     title: 'Connection Error',
+                     message: 'Wallet connection modal is not ready. Please try again.',
+                     recoverable: true
+                });
+            }
             return;
         }
 
