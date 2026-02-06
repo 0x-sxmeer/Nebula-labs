@@ -283,8 +283,11 @@ const SwapCard = () => {
 
     // Sync slippage
     useEffect(() => {
-        setCustomSlippage((slippage * 100).toFixed(1));
-    }, [slippage]);
+        const formatted = (slippage * 100).toFixed(1);
+        if (customSlippage !== formatted) {
+            setCustomSlippage(formatted);
+        }
+    }, [slippage, customSlippage]);
 
 
 
