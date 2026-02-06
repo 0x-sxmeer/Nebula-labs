@@ -14,6 +14,7 @@ import { useSwapHistory } from '../../hooks/useSwapHistory';
 import { useTokenApproval, ApprovalStatus } from '../../hooks/useTokenApproval';
 import { useSwapExecution } from '../../hooks/useSwapExecution';
 import { useTransactionStatus } from '../../hooks/useTransactionStatus';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
 import { lifiService } from '../../services/lifiService';
 import { analytics } from '../../services/analyticsService';
@@ -148,6 +149,12 @@ const SwapCard = () => {
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [useInfiniteApproval, setUseInfiniteApproval] = useState(false);
 
+    // ✅ CRITICAL FIX #1: Notification System State
+    const [notifications, setNotifications] = useState([]);
+
+    // ✅ HIGH #2: Network Status Monitoring
+    const { isOnline } = useNetworkStatus();
+
 
 
     const [gasSpeed, setGasSpeed] = useState('standard');
@@ -155,6 +162,40 @@ const SwapCard = () => {
 
 
     const [useAutoSlippage, setUseAutoSlippage] = useState(false);
+
+    // ✅ CRITICAL FIX #1: Initialize global notification system
+    useEffect(() => {
+        window.showNotification = ({ type, title, message, duration = 3000, persistent = false }) => {
+            const id = Date.now();
+            const notification = { id, type, title, message, persistent };
+            
+            setNotifications(prev => [...prev, notification]);
+            
+            if (!persistent && duration > 0) {
+                setTimeout(() => {
+                    setNotifications(prev => prev.filter(n => n.id !== id));
+                }, duration);
+            }
+        };
+        
+        return () => {
+            window.showNotification = null;
+        };
+    }, []);
+
+    // ✅ HIGH #1: Stale Quote Detection
+    const isQuoteStale = useMemo(() => {
+        if (!selectedRoute?.timestamp) return false;
+        const age = Date.now() - selectedRoute.timestamp;
+        return age > 45000; // Warn at 45s (before 60s hard limit)
+    }, [selectedRoute?.timestamp]);
+
+    // Re-check for stale quote every second
+    const [, forceUpdate] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
     
     // Token Approval Hook
     const {
@@ -1481,6 +1522,80 @@ const SwapCard = () => {
                 isOpen={showHistory}
                 onClose={() => setShowHistory(false)}
             />
+
+            {/* ✅ CRITICAL FIX #1: Notification Stack */}
+            <div className="notification-stack" style={{
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                pointerEvents: 'none'
+            }}>
+                {notifications.map(notif => (
+                    <div 
+                        key={notif.id}
+                        className={`notification notification-${notif.type}`}
+                        style={{
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            background: notif.type === 'success' ? 'rgba(76, 175, 80, 0.95)' :
+                                       notif.type === 'error' ? 'rgba(244, 67, 54, 0.95)' :
+                                       notif.type === 'warning' ? 'rgba(255, 152, 0, 0.95)' :
+                                       'rgba(33, 150, 243, 0.95)',
+                            color: '#fff',
+                            minWidth: '300px',
+                            maxWidth: '400px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                            animation: 'slideInRight 0.3s ease-out',
+                            pointerEvents: 'auto'
+                        }}
+                    >
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'flex-start',
+                            gap: '10px'
+                        }}>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                    fontWeight: 600, 
+                                    marginBottom: '4px',
+                                    fontSize: '0.9rem'
+                                }}>
+                                    {notif.title}
+                                </div>
+                                {notif.message && (
+                                    <div style={{ 
+                                        fontSize: '0.85rem', 
+                                        opacity: 0.9 
+                                    }}>
+                                        {notif.message}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setNotifications(prev => 
+                                    prev.filter(n => n.id !== notif.id)
+                                )}
+                                style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    border: 'none',
+                                    color: 'inherit',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px'
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

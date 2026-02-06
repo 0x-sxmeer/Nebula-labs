@@ -200,3 +200,98 @@ export const isRecoverableError = (errorCode) => {
     LIFI_ERROR_CODES.RPC_FAILURE,
   ].includes(errorCode);
 };
+
+/**
+ * ✅ HIGH #6: Parse blockchain transaction errors with enhanced context
+ * @param {any} error - Error from wallet/transaction
+ * @param {Object} context - Transaction context (route, token, etc.)
+ * @returns {{title: string, message: string, suggestion?: string, recoverable: boolean}}
+ */
+export const parseTransactionError = (error, context = {}) => {
+  const errorMessage = (error?.message || error?.reason || String(error)).toLowerCase();
+  
+  // User rejected transaction
+  if (errorMessage.includes('user rejected') || errorMessage.includes('user denied')) {
+    return {
+      title: 'Transaction Cancelled',
+      message: 'You cancelled the transaction in your wallet.',
+      suggestion: 'Click "Swap" to try again when ready.',
+      recoverable: true
+    };
+  }
+  
+  // Insufficient funds
+  if (errorMessage.includes('insufficient funds') || errorMessage.includes('insufficient balance')) {
+    const nativeSymbol = context.chain?.nativeCurrency?.symbol || 'native tokens';
+    return {
+      title: 'Insufficient Funds',
+      message: `Not enough ${nativeSymbol} for transaction and gas.`,
+      suggestion: `Add more ${nativeSymbol} or reduce the swap amount.`,
+      recoverable: true
+    };
+  }
+  
+  // Nonce too low
+  if (errorMessage.includes('nonce too low')) {
+    return {
+      title: 'Transaction Conflict',
+      message: 'Pending transaction detected.',
+      suggestion: 'Wait for pending transaction or speed it up in wallet.',
+      recoverable: true
+    };
+  }
+  
+  // Gas issues
+  if (errorMessage.includes('gas required exceeds') || errorMessage.includes('out of gas')) {
+    return {
+      title: 'Gas Estimation Failed',
+      message: 'Transaction would fail due to gas limits.',
+      suggestion: 'Try a smaller amount or refresh the quote.',
+      recoverable: true
+    };
+  }
+  
+  // Execution reverted
+  if (errorMessage.includes('execution reverted') || errorMessage.includes('revert')) {
+    if (errorMessage.includes('expired') || errorMessage.includes('deadline')) {
+      return {
+        title: 'Quote Expired',
+        message: 'Quote expired before execution.',
+        suggestion: 'Refresh and try again quickly.',
+        recoverable: true
+      };
+    }
+    if (errorMessage.includes('slippage')) {
+      return {
+        title: 'Slippage Too Low',
+        message: 'Price moved beyond slippage tolerance.',
+        suggestion: 'Increase slippage in settings.',
+        recoverable: true
+      };
+    }
+    return {
+      title: 'Transaction Failed',
+      message: 'Contract rejected the transaction.',
+      suggestion: 'Try smaller amount or different route.',
+      recoverable: true
+    };
+  }
+  
+  // Network/RPC errors
+  if (errorMessage.includes('network') || errorMessage.includes('rpc') || errorMessage.includes('timeout')) {
+    return {
+      title: 'Network Error',
+      message: 'Could not connect to blockchain.',
+      suggestion: 'Check connection and try again.',
+      recoverable: true
+    };
+  }
+  
+  // Default fallback
+  return {
+    title: 'Transaction Error',
+    message: error?.shortMessage || error?.message || 'An unexpected error occurred.',
+    suggestion: 'Please try again or contact support.',
+    recoverable: true
+  };
+};

@@ -740,3 +740,108 @@
     transform: translateY(0);
   }
 }
+
+/* =========================================
+   CRITICAL FIX #1: NOTIFICATION SYSTEM
+   ========================================= */
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.notification-success {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.95), rgba(67, 160, 71, 0.95)) !important;
+}
+
+.notification-error {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.95), rgba(229, 57, 53, 0.95)) !important;
+}
+
+.notification-warning {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.95), rgba(251, 140, 0, 0.95)) !important;
+}
+
+.notification-info {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.95), rgba(30, 136, 229, 0.95)) !important;
+}
+
+/* =========================================
+   HIGH #1: STALE QUOTE WARNING
+   ========================================= */
+
+.stale-quote-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.5);
+  border-radius: 12px;
+  color: #ff9800;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.stale-quote-warning button {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: rgba(255, 152, 0, 0.3);
+  border: 1px solid #ff9800;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+
+.stale-quote-warning button:hover {
+  background: rgba(255, 152, 0, 0.5);
+}
+
+/* =========================================
+   HIGH #2: OFFLINE BANNER
+   ========================================= */
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  border-radius: 12px;
+  color: #f44336;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+/* Mobile optimizations for notifications */
+@media (max-width: 560px) {
+  .notification-stack {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+}
