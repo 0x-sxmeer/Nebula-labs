@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     // 5. Construct Real Li.Fi URL
     // Ensure we don't have double slashes
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    const targetUrl = `https://li.fi/v1${cleanEndpoint}`;
+    const targetUrl = `https://li.quest/v1${cleanEndpoint}`;
 
     console.log(`Proxying ${method} request to: ${targetUrl}`);
 
