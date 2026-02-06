@@ -434,6 +434,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       const routeParams = {
         fromChainId: fromChain.id,
         fromTokenAddress: fromToken.address,
+        toChainId: toChain.id,
         toTokenAddress: toToken.address,
         // Use user address or zero address for guest estimation
         fromAddress: walletAddress || '0x0000000000000000000000000000000000000000',
