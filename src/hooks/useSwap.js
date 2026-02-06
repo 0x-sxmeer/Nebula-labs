@@ -581,17 +581,22 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
 
   // 2. Update debounced amount with delay
   useEffect(() => {
+    logger.log('⏳ Starting debounce timer for:', fromAmount);
     const handler = setTimeout(() => {
+      logger.log('✅ Debounce timer finished. Setting debouncedAmount to:', fromAmount);
       setDebouncedAmount(fromAmount);
     }, DEBOUNCE_DELAY);
 
     return () => {
+      logger.log('🚫 Debounce timer cleared (user typed again)');
       clearTimeout(handler);
     };
   }, [fromAmount]);
 
   // 3. Fetch routes when debounced amount (or other params) changes
   useEffect(() => {
+    logger.log('🔄 Debounced State Changed:', { debouncedAmount });
+    
     // Skip if amount is invalid
     if (!debouncedAmount || parseFloat(debouncedAmount) <= 0) {
       setRoutes([]);
@@ -600,7 +605,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       return;
     }
 
-    logger.log('🔄 Auto-refresh triggered by change:', { debouncedAmount, chain: fromChain.name });
+    logger.log('🚀 Triggering auto-fetch for:', debouncedAmount);
     fetchRoutes(false);
 
   }, [debouncedAmount, fetchRoutes]);
