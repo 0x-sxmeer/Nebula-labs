@@ -183,19 +183,7 @@ const SwapCard = () => {
         };
     }, []);
 
-    // ✅ HIGH #1: Stale Quote Detection
-    const isQuoteStale = useMemo(() => {
-        if (!selectedRoute?.timestamp) return false;
-        const age = Date.now() - selectedRoute.timestamp;
-        return age > 45000; // Warn at 45s (before 60s hard limit)
-    }, [selectedRoute?.timestamp]);
 
-    // Re-check for stale quote every second
-    const [, forceUpdate] = useState(0);
-    useEffect(() => {
-        const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
-        return () => clearInterval(interval);
-    }, []);
     
     // Token Approval Hook
     const {
@@ -218,6 +206,20 @@ const SwapCard = () => {
 
     // Initialize Swap History
     const { saveSwap, updateStatus, getExplorerUrl } = useSwapHistory(walletAddress);
+
+    // ✅ HIGH #1: Stale Quote Detection (Moved here to fix ReferenceError)
+    const isQuoteStale = useMemo(() => {
+        if (!selectedRoute?.timestamp) return false;
+        const age = Date.now() - selectedRoute.timestamp;
+        return age > 45000; // Warn at 45s (before 60s hard limit)
+    }, [selectedRoute?.timestamp]);
+
+    // Re-check for stale quote every second
+    const [, forceUpdate] = useState(0);
+    useEffect(() => {
+        const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Get the spender address from the selected route (LiFi router)
     // Dry Run Fix: Robust spender resolution
