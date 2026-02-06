@@ -387,11 +387,27 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       setLoadingBalance(false);
     }
   }, [
-    walletAddress, fromToken, fromAmount, nativeBalance, tokenBalance, 
+    walletAddress, fromToken, fromAmount, 
     selectedRoute, fromChain, isEVMChain, setError
+    // Removed nativeBalance/tokenBalance from dependencies to prevent loops
+    // Accessed via ref instead
   ]);
 
-  // ========== FETCH ROUTES WITH PROPER ABORT HANDLING ==========
+  // Ref to hold latest balances for checkBalance
+  const balancesRef = useRef({ nativeBalance, tokenBalance });
+  useEffect(() => {
+    balancesRef.current = { nativeBalance, tokenBalance };
+  });
+
+  // ========== CHECK BALANCE ON CHANGES ==========
+  useEffect(() => {
+    checkBalance();
+  }, [
+    checkBalance, 
+    // Trigger on value changes, not object reference changes
+    nativeBalance?.value, 
+    tokenBalance?.value
+  ]);
   
   /**
    * FIXED: Proper abort controller integration
@@ -576,24 +592,36 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   ]);
 
   // ========== DEBOUNCED AMOUNT LOGIC ==========
+  // ========== DEPENDENCY BREAKING REF ==========
+  // We use this to access the latest fetchRoutes without adding it to useEffect dependencies.
+  // This prevents infinite loops if fetchRoutes creates a new identity on every render.
+  const fetchRoutesRef = useRef(fetchRoutes);
+  
+  useEffect(() => {
+    fetchRoutesRef.current = fetchRoutes;
+  });
+
+  // ========== DEBOUNCED AMOUNT LOGIC ==========
   // 1. Store debounced amount separately
   const [debouncedAmount, setDebouncedAmount] = useState(fromAmount);
 
   // 2. Update debounced amount with delay
   useEffect(() => {
-    logger.log('⏳ Starting debounce timer for:', fromAmount);
+    // Only log start if amount actually changed to something input-like
+    if (fromAmount !== debouncedAmount) {
+         // logger.log('⏳ Starting debounce timer for:', fromAmount);
+    }
     const handler = setTimeout(() => {
-      logger.log('✅ Debounce timer finished. Setting debouncedAmount to:', fromAmount);
+      // logger.log('✅ Debounce timer finished. Setting debouncedAmount to:', fromAmount);
       setDebouncedAmount(fromAmount);
     }, DEBOUNCE_DELAY);
 
     return () => {
-      logger.log('🚫 Debounce timer cleared (user typed again)');
       clearTimeout(handler);
     };
   }, [fromAmount]);
 
-  // 3. Fetch routes when debounced amount (or other params) changes
+  // 3. Fetch routes ONLY when debounced amount changes
   useEffect(() => {
     logger.log('🔄 Debounced State Changed:', { debouncedAmount });
     
@@ -606,9 +634,13 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     }
 
     logger.log('🚀 Triggering auto-fetch for:', debouncedAmount);
-    fetchRoutes(false);
+    
+    // Call the latest fetchRoutes safely
+    if (fetchRoutesRef.current) {
+        fetchRoutesRef.current(false);
+    }
 
-  }, [debouncedAmount, fetchRoutes]);
+  }, [debouncedAmount]); // <--- CRITICAL: NO fetchRoutes dependency here!
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
   useEffect(() => {

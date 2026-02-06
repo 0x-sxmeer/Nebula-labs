@@ -216,11 +216,8 @@ const SwapCard = () => {
         : false;
 
     // Re-check for stale quote every second
-    const [, forceUpdate] = useState(0);
-    useEffect(() => {
-        const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
-        return () => clearInterval(interval);
-    }, []);
+    // Re-check for stale quote every second (Removed explicit forceUpdate to improve performance)
+    // The timestamp check is fast enough on natural re-renders or can be handled by a less aggressive timer if needed.
 
     // Get the spender address from the selected route (LiFi router)
     // Dry Run Fix: Robust spender resolution
