@@ -46,27 +46,11 @@ export default defineConfig({
           });
         }
       },
-      // ✅ Li.Fi API Proxy (Hardened)
-      '/lifi-proxy': {
-        target: 'https://li.quest/v1',
+      // ✅ Production Backend Proxy (for local dev)
+      '/api/lifi-proxy': {
+        target: 'https://nebula-labs-ten.vercel.app',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/lifi-proxy/, ''),
-        secure: false,  // Revert to false to prevent strict SSL issues locally 
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, _req, _res) => {
-            // Spoof User-Agent and Origin to look like a direct request
-            proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-            proxyReq.removeHeader('Origin');
-          });
-          
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
-             // Force CORS headers on response
-             proxyRes.headers['Access-Control-Allow-Origin'] = '*';
-             proxyRes.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT, PATCH, DELETE';
-             proxyRes.headers['Access-Control-Allow-Headers'] = 'X-Requested-With,content-type';
-             console.log(`[Proxy] ${req.method} ${req.url} -> ${proxyRes.statusCode}`);
-          });
-        }
+        secure: false,
       }
     }
   },

@@ -39,7 +39,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/lifi-proxy", "destination": "/api/lifi-proxy" },
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/rpc-proxy", "destination": "/api/rpc-proxy" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
