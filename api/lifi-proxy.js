@@ -53,9 +53,11 @@ export default async function handler(req, res) {
           originToAllow = requestOrigin;
       }
   } else {
-      // Production: Strict check
-      const allowedList = allowedOrigin.split(',').map(o => o.trim());
-      if (allowedList.includes(requestOrigin)) {
+      // Production: Strict check (Normalized)
+      const allowedList = allowedOrigin.split(',').map(o => o.trim().replace(/\/$/, ''));
+      const normalizedRequestOrigin = requestOrigin.replace(/\/$/, '');
+      
+      if (allowedList.includes(normalizedRequestOrigin)) {
           originToAllow = requestOrigin;
       }
   }
