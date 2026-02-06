@@ -30,6 +30,24 @@ export default defineConfig({
     //     filename: 'stats.html'
     // }),
   ],
+  server: {
+    proxy: {
+      '/api/rpc-proxy': {
+        target: 'https://rpc.ankr.com', // Fallback target
+        changeOrigin: true,
+        rewrite: (path) => {
+          const chain = new URLSearchParams(path.split('?')[1]).get('chain');
+          // Add logic to route to different providers based on chain if needed
+          return ''; // This is a mock proxy setup - likely needs a real backend function
+        },
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+             // Basic forwarding logic
+          });
+        }
+      }
+    }
+  },
   build: {
     target: 'esnext',
     sourcemap: false, // ✅ Save memory during build

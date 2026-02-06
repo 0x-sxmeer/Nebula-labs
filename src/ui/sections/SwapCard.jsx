@@ -208,11 +208,10 @@ const SwapCard = () => {
     const { saveSwap, updateStatus, getExplorerUrl } = useSwapHistory(walletAddress);
 
     // ✅ HIGH #1: Stale Quote Detection (Moved here to fix ReferenceError)
-    const isQuoteStale = useMemo(() => {
-        if (!selectedRoute?.timestamp) return false;
-        const age = Date.now() - selectedRoute.timestamp;
-        return age > 45000; // Warn at 45s (before 60s hard limit)
-    }, [selectedRoute?.timestamp]);
+    // ✅ HIGH #1: Stale Quote Detection (Calculated on every render/forceUpdate)
+    const isQuoteStale = selectedRoute?.timestamp 
+        ? (Date.now() - selectedRoute.timestamp > 45000) // Warn at 45s
+        : false;
 
     // Re-check for stale quote every second
     const [, forceUpdate] = useState(0);
