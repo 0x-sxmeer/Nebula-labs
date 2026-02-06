@@ -595,7 +595,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [fromAmount, fromChain, fromToken, toChain, toToken, slippage, walletAddress]);
+  }, [fromAmount, fromChain, fromToken, toChain, toToken, slippage, walletAddress, fetchRoutes]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
   useEffect(() => {
