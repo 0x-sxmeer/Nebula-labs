@@ -433,6 +433,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
 
       const routeParams = {
         fromChainId: fromChain.id,
+        fromAmount: amountInSmallestUnit,
         fromTokenAddress: fromToken.address,
         toChainId: toChain.id,
         toTokenAddress: toToken.address,
