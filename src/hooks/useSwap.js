@@ -640,7 +640,14 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         fetchRoutesRef.current(false);
     }
 
-  }, [debouncedAmount]); // <--- CRITICAL: NO fetchRoutes dependency here!
+  }, [
+    debouncedAmount, 
+    fromChain?.id, 
+    toChain?.id, 
+    fromToken?.address, 
+    toToken?.address,
+    slippage // Also trigger if slippage changes
+  ]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
   useEffect(() => {
