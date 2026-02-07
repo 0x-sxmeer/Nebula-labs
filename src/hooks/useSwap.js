@@ -247,6 +247,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         if (['USDC', 'USDT', 'DAI'].includes(symbol)) return;
 
         try {
+            // FIXED: Use renamed getToken method
             const freshToken = await lifiService.getToken(fromChain.id, fromToken.address);
             if (freshToken && freshToken.priceUSD) {
                 // Check if price is significantly different
@@ -594,6 +595,15 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     }
 
     try {
+      // PERMANENT GUARD: Block requests if decimal data is missing
+      if (!fromToken?.decimals || !toToken?.decimals || !currentAmount || parseFloat(currentAmount) <= 0) {
+        if (!silent) {
+          setRoutes([]);
+          setSelectedRoute(null);
+        }
+        return;
+      }
+
       // Fetch gas prices
       const fetchedGasPrices = await lifiService.getGasPrices(fromChain.id);
       setGasPrice(fetchedGasPrices);

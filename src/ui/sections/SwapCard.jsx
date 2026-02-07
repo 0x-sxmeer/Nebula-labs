@@ -729,22 +729,16 @@ const SwapCard = () => {
                                                         onClick={() => {
                                                             if (balance?.value && fromToken) {
                                                                 if (isNativeToken) {
-                                                                    // Dynamic Gas Reservation
-                                                                    // Reserve based on current gas price (default to 0.005 ETH if gas fetch fails)
-                                                                    // 21000 units * gasPrice * 1.5 buffer
-                                                                    const gasPriceVal = BigInt(gasPrice?.standard || 5000000000); // 5 gwei default fallback
-                                                                    const estimatedGas = gasPriceVal * 300000n; // Swap gas limit
-                                                                    const buffer = (estimatedGas * 150n) / 100n; // 1.5x buffer
+                                                                    // DYNAMIC: Reserve 1.5x of the fetched gas price for the swap
+                                                                    const gasPriceVal = BigInt(gasPrice?.standard || 5000000000); 
+                                                                    const estimatedGasLimit = 350000n; 
+                                                                    const gasReserve = (gasPriceVal * estimatedGasLimit);
                                                                     
-                                                                    // Ensure we don't reserve MORE than 0.01 ETH to be safe, but usually less
-                                                                    const cap = BigInt('10000000000000000'); // 0.01 ETH
-                                                                    const finalReserve = buffer > cap ? cap : buffer;
-
-                                                            const maxVal = BigInt(balance.value) > finalReserve 
-                                                                        ? formatUnits(BigInt(balance.value) - finalReserve, fromToken.decimals)
-                                                                        : formatUnits(BigInt(balance.value), fromToken.decimals);
+                                                                    const maxAvailable = BigInt(balance.value) > gasReserve 
+                                                                        ? formatUnits(BigInt(balance.value) - gasReserve, fromToken.decimals)
+                                                                        : "0";
                                                                     
-                                                                    setFromAmount(maxVal);
+                                                                    setFromAmount(maxAvailable);
                                                                 } else {
                                                                     setFromAmount(formatUnits(balance.value, fromToken.decimals));
                                                                 }

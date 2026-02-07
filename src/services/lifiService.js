@@ -14,15 +14,19 @@ import { logger } from '../utils/logger.js';
  * @property {number} reset - Seconds until reset
  */
 
-/**
- * Converts a human amount (e.g., 1.5) to a token's base unit (e.g., 1500000)
- * Uses BigInt for precision safety.
- */
+// FIXED: Handles scientific notation and ensures atomic unit precision
 const toBaseUnit = (amount, decimals) => {
-  if (!amount || isNaN(amount)) return "0";
-  const [integer, fraction = ""] = amount.toString().split(".");
-  const paddedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
-  return (BigInt(integer) * BigInt(10) ** BigInt(decimals) + BigInt(paddedFraction)).toString();
+  if (!amount || isNaN(amount) || decimals === undefined) return "0";
+  try {
+    // Convert to fixed string to handle scientific notation (e.g., 1e-7)
+    const stringAmount = Number(amount).toFixed(decimals);
+    const [integer, fraction = ""] = stringAmount.split(".");
+    const paddedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
+    return (BigInt(integer) * BigInt(10) ** BigInt(decimals) + BigInt(paddedFraction)).toString();
+  } catch (e) {
+    logger.error("Normalization Error:", e);
+    return "0";
+  }
 };
 
 class LiFiService {
@@ -70,16 +74,16 @@ class LiFiService {
 // ... (lines 58-272 skipped)
 
   /**
-   * Get token details with price
+   * Get token details with price (Renamed for useSwap compatibility)
    */
-  async getTokenInfo(chainId, tokenAddress) {
+  async getToken(chainId, tokenAddress) {
     try {
       const data = await this.makeRequest(`/token?chain=${chainId}&token=${tokenAddress}`, { cache: true });
       
-      // ✅ CRITICAL FIX: Sanitize single token fetch
+      // Sanitization: Prevents $2.00 USDC glitches
       if (data && ['USDC', 'USDT', 'DAI', 'BUSD'].includes(data.symbol?.toUpperCase())) {
           const price = parseFloat(data.priceUSD || '0');
-          if (price > 2.0) {
+          if (price > 1.1 || price < 0.9) {
               return { ...data, priceUSD: '1.00' };
           }
       }
@@ -375,26 +379,8 @@ class LiFiService {
     return cached?.tokens?.[chainId] || null;
   }
 
-  /**
-   * Get token details with price
-   */
-  async getTokenInfo(chainId, tokenAddress) {
-    try {
-      const data = await this.makeRequest(`/token?chain=${chainId}&token=${tokenAddress}`, { cache: true });
-      return data;
-    } catch (error) {
-        logger.error('Error fetching token info:', error);
-        // Return default structure instead of null
-        return {
-            address: tokenAddress,
-            chainId,
-            symbol: 'UNKNOWN',
-            name: 'Unknown Token',
-            decimals: 18,
-            priceUSD: '0'
-        };
-    }
-  }
+  // Duplicate getTokenInfo removed
+
 
   /**
    * Get multiple routes (production-grade with full error handling)
@@ -415,8 +401,10 @@ class LiFiService {
       options = {},
     } = params;
 
-    // ✅ CRITICAL FIX: centralized normalization
-    const fromAmountAtomic = toBaseUnit(fromAmount, fromTokenDecimals || 18);
+    // MANDATORY: Never default to 18; must use token-specific decimals
+    if (!fromTokenDecimals) throw new Error("Decimals required for route fetching");
+
+    const fromAmountAtomic = toBaseUnit(fromAmount, fromTokenDecimals);
 
     try {
       const requestBody = {
