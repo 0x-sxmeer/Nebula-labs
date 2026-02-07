@@ -50,10 +50,42 @@ class LiFiService {
     // Request cache for chains/tokens (static data)
     this.cache = new Map();
     this.CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-    this.LS_KEY = 'lifi_cache_v1';
+    this.LS_KEY = 'lifi_cache_v5_clean'; // ✅ FORCE INVALIDATE V4 CACHE
     
     // Load from LocalStorage
     this.loadFromLocalStorage();
+  }
+
+// ... (lines 58-272 skipped)
+
+  /**
+   * Get token details with price
+   */
+  async getTokenInfo(chainId, tokenAddress) {
+    try {
+      const data = await this.makeRequest(`/token?chain=${chainId}&token=${tokenAddress}`, { cache: true });
+      
+      // ✅ CRITICAL FIX: Sanitize single token fetch
+      if (data && ['USDC', 'USDT', 'DAI', 'BUSD'].includes(data.symbol?.toUpperCase())) {
+          const price = parseFloat(data.priceUSD || '0');
+          if (price > 2.0) {
+              return { ...data, priceUSD: '1.00' };
+          }
+      }
+
+      return data;
+    } catch (error) {
+        logger.error('Error fetching token info:', error);
+        // Return default structure instead of null
+        return {
+            address: tokenAddress,
+            chainId,
+            symbol: 'UNKNOWN',
+            name: 'Unknown Token',
+            decimals: 18,
+            priceUSD: '0'
+        };
+    }
   }
 
   // ... (loadFromLocalStorage, saveToLocalStorage, parseRateLimitHeaders, canMakeRequest methods essentially unchanged)
@@ -158,8 +190,15 @@ class LiFiService {
         }).finally(() => clearTimeout(timeoutId));
 
         if (!response.ok) {
-           // ... (keep your existing error handling logic here) ...
-           const errorData = await response.json().catch(() => ({}));
+           const errorText = await response.text().catch(() => 'No error text');
+           let errorData = {};
+           try {
+               errorData = JSON.parse(errorText);
+           } catch {
+               errorData = { message: errorText };
+           }
+           
+           logger.error(`API Error (${response.status}) at ${endpoint}:`, errorData);
            throw { response: { status: response.status, data: errorData } };
         }
 
@@ -173,7 +212,11 @@ class LiFiService {
 
       } catch (error) {
         lastError = error;
-        // ... (keep your existing retry logic here) ...
+        // Don't retry if aborted
+        if (error.name === 'AbortError') throw error;
+
+        logger.warn(`Attempt ${attempt + 1}/${retries + 1} failed for ${endpoint}:`, error);
+        
         if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
       }
     }
@@ -226,22 +269,76 @@ class LiFiService {
   /**
    * Fetch tokens for a chain (cached)
    */
-  async getTokens(chainId) {
+    async getTokens(chainId) {
     try {
-      const data = await this.makeRequest(`/tokens?chains=${chainId}`, { cache: true });
+      // 1. Disable auto-caching in makeRequest to prevent storing raw data
+      const data = await this.makeRequest(`/tokens?chains=${chainId}`, { cache: false });
       const tokens = data.tokens?.[chainId] || [];
       
-      // ✅ CRITICAL FIX: Global Sanitization of Stablecoin Prices
-      // Prevents "USDC = $2000" issues from API anomalies
-      const sanitizedTokens = tokens.map(t => {
+      // ✅ CRITICAL FIX: Global Sanitization (Prices & Addresses)
+      const sanitizedTokens = tokens.filter(t => {
+          // 1. FILTER OUT: Frankenstein Tokens (Stablecoins with Native Address)
+          if (['USDC', 'USDT', 'DAI', 'BUSD'].includes(t.symbol?.toUpperCase())) {
+              const isNative = t.address === '0x0000000000000000000000000000000000000000' || 
+                               t.address?.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+              if (isNative) {
+                  logger.warn(`🗑️ Removed valid-looking but corrupted token: ${t.symbol} with Native Address`);
+                  return false; // REMOVE IT
+              }
+          }
+
+          // ✅ FILTER OUT: Fake/Impostor Major Tokens
+          // For Ethereum (Chain 1), enforce official addresses for critical assets
+          if (t.chainId === 1) {
+             const sym = t.symbol?.toUpperCase();
+             const addr = t.address?.toLowerCase();
+             
+             // Official Addresses
+             const USDC_ADDR = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+             const USDT_ADDR = '0xdac17f958d2ee523a2206206994597c13d831ec7';
+             const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+             const NATIVE_ADDRS = ['0x0000000000000000000000000000000000000000', '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'];
+
+             if (sym === 'USDC' && addr !== USDC_ADDR) return false;
+             if (sym === 'USDT' && addr !== USDT_ADDR) return false;
+             if ((sym === 'ETH') && !NATIVE_ADDRS.includes(addr)) return false; 
+             if ((sym === 'WETH') && addr !== WETH_ADDR) return false;
+          }
+          
+          return true;
+      }).map(t => {
+          // 2. CORRECTION: Anomalous Prices
+          
+          // 2a. Stablecoins (Should be ~1.00)
           if (['USDC', 'USDT', 'DAI', 'BUSD'].includes(t.symbol?.toUpperCase())) {
               const price = parseFloat(t.priceUSD || '0');
               if (price > 2.0) {
                   return { ...t, priceUSD: '1.00' };
               }
           }
+
+          // 2b. Major Tokens (Sanity Check)
+          // Prevents issues where API might return $1 for ETH (e.g. on testnets or glitch)
+          const symbol = t.symbol?.toUpperCase();
+          const price = parseFloat(t.priceUSD || '0');
+          
+          if (symbol === 'ETH' || symbol === 'WETH') {
+             if (price < 100.0 && price > 0) return { ...t, priceUSD: '2000.00' }; // Fallback safe price
+          }
+          if (symbol === 'BNB' || symbol === 'WBNB') {
+             if (price < 20.0 && price > 0) return { ...t, priceUSD: '300.00' };
+          }
+          if (symbol === 'BTC' || symbol === 'WBTC') {
+             if (price < 1000.0 && price > 0) return { ...t, priceUSD: '30000.00' };
+          }
+          
           return t;
       });
+
+      // 2. Manually cache the SANITIZED data
+      // This ensures subsequent sync calls get the corrected prices
+      const cacheKey = `/tokens?chains=${chainId}`;
+      this.setCache(cacheKey, { tokens: { [chainId]: sanitizedTokens } });
 
       return sanitizedTokens;
     } catch (error) {

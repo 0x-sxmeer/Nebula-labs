@@ -117,21 +117,22 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         );
         
         if (matchingToken) {
-          setFromTokenState({
+          // Use the validated setter to ensure integrity
+          setFromToken({
             ...matchingToken,
             chainId: chain.id
           });
           logger.log(`✅ Preserved ${fromToken.symbol} on ${chain.name}`);
         } else {
-          setFromTokenState(null);
+          setFromToken(null);
           logger.log(`ℹ️ ${fromToken.symbol} not available on ${chain.name}`);
         }
       } catch (error) {
         logger.error('Failed to fetch tokens for new chain:', error);
-        setFromTokenState(null);
+        setFromToken(null);
       }
     } else {
-      setFromTokenState(null);
+      setFromToken(null);
     }
     
     setBalance(null);
@@ -155,17 +156,17 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         );
         
         if (matchingToken) {
-          setToTokenState({ ...matchingToken, chainId: chain.id });
+          setToToken({ ...matchingToken, chainId: chain.id });
           logger.log(`✅ Preserved ${toToken.symbol} on ${chain.name}`);
         } else {
-          setToTokenState(null);
+          setToToken(null);
         }
       } catch (error) {
         logger.error('Failed to fetch tokens:', error);
-        setToTokenState(null);
+        setToToken(null);
       }
     } else {
-      setToTokenState(null);
+      setToToken(null);
     }
     
     setCustomToAddress('');
@@ -174,36 +175,146 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     requestIdRef.current++;
   }, [toToken]);
 
-  const setFromToken = useCallback((token) => {
-    // ✅ SANITY CHECK: Fix corrupted price data (e.g. USDC with ETH price)
-    if (token) {
-        const isStable = ['USDC', 'USDT', 'DAI', 'BUSD'].includes(token.symbol?.toUpperCase());
-        const price = parseFloat(token.priceUSD || '0');
+  // ✅ SHARED: Token Validator Helper
+  const validateTokenState = (token) => {
+      if (!token) return null;
+      
+      let validated = { ...token };
+      const symbol = validated.symbol?.toUpperCase();
+      const address = validated.address?.toLowerCase();
+      
+      // 1. Stablecoin Price Sanitization
+      const isStable = ['USDC', 'USDT', 'DAI', 'BUSD', 'USDC.E', 'USDT.E'].includes(symbol);
+      const rawPrice = parseFloat(validated.priceUSD || '0');
+      
+      if (isStable && rawPrice > 2.0) {
+          logger.warn(`Correcting anomalous price for ${symbol}: ${rawPrice} -> 1.0`);
+          validated.priceUSD = '1.00';
+      }
+
+      // 2. Major Token Sanity Check
+      if (symbol === 'ETH' || symbol === 'WETH') {
+          if (rawPrice < 100.0 && rawPrice > 0) validated.priceUSD = '2500.00';
+          if (validated.decimals !== 18) validated.decimals = 18;
+      }
+      if (symbol === 'BNB' || symbol === 'WBNB') {
+          if (rawPrice < 20.0 && rawPrice > 0) validated.priceUSD = '400.00';
+          if (validated.decimals !== 18) validated.decimals = 18;
+      }
+      if (symbol === 'BTC' || symbol === 'WBTC') {
+          if (rawPrice < 1000.0 && rawPrice > 0) validated.priceUSD = '40000.00';
+      }
+      if (symbol === 'SOL') {
+          if (rawPrice < 10.0 && rawPrice > 0) validated.priceUSD = '100.00';
+      }
+
+      // 3. Identity Verification
+      const isNativeAddress = address === NATIVE_TOKEN_ADDRESS.toLowerCase() || 
+                              address === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+                              
+      // Chain 1 Specific Strictness
+      if (validated.chainId === 1) {
+           const USDC_ADDR = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+           const USDT_ADDR = '0xdac17f958d2ee523a2206206994597c13d831ec7';
+           
+           if (symbol === 'USDC' && address !== USDC_ADDR) {
+                logger.error('CRITICAL: Fake USDC detected! Resetting.');
+                return null;
+           }
+           if (symbol === 'USDT' && address !== USDT_ADDR) {
+                logger.error('CRITICAL: Fake USDT detected! Resetting.');
+                return null;
+           }
+      }
+
+      if (symbol === 'USDC' && isNativeAddress) {
+          logger.error('CRITICAL: Detected USDC with Native Address! correcting...');
+          return null; // Force null to reset
+      }
+
+      return validated;
+  };
+
+  // ✅ DYNAMIC PRICE UPDATE
+  // Fetch fresh price when token changes to ensure accuracy (fix stale/wrong list prices)
+  useEffect(() => {
+    const fetchFreshPrice = async () => {
+        if (!fromToken || !fromChain || !fromToken.address) return;
         
-        if (isStable && price > 2.0) {
-            logger.warn(`Correcting anomalous price for ${token.symbol}: ${price} -> 1.0`);
-            token = { ...token, priceUSD: '1.00' };
+        // Skip if it's a stablecoin we already sanitized to 1.00
+        // But for ETH/BTC/Others, we want the REAL price.
+        const symbol = fromToken.symbol?.toUpperCase();
+        if (['USDC', 'USDT', 'DAI'].includes(symbol)) return;
+
+        try {
+            const freshToken = await lifiService.getToken(fromChain.id, fromToken.address);
+            if (freshToken && freshToken.priceUSD) {
+                // Check if price is significantly different
+                const oldPrice = parseFloat(fromToken.priceUSD || '0');
+                const newPrice = parseFloat(freshToken.priceUSD);
+                
+                // Only update if difference > 5% or old price was 0/1 (anomalous)
+                if (Math.abs(newPrice - oldPrice) / (oldPrice || 1) > 0.05 || oldPrice <= 1.0) {
+                     logger.log(`🔄 Updated price for ${fromToken.symbol}: ${oldPrice} -> ${newPrice}`);
+                     
+                     // Run validator on the FRESH token
+                     const validated = validateTokenState({
+                         ...fromToken,
+                         priceUSD: freshToken.priceUSD
+                     });
+                     
+                     // Update state without triggering loop (using function update if needed, but setFromTokenState is safe)
+                     setFromTokenState(prev => ({
+                         ...prev,
+                         priceUSD: validated.priceUSD
+                     }));
+                }
+            }
+        } catch (e) {
+            // Ignore fetch errors
         }
+    };
+    
+    fetchFreshPrice();
+  }, [fromToken?.address, fromChain?.id]); // Only run when address/chain changes
+
+  const setFromToken = useCallback((token) => {
+    // ✅ CRITICAL FIX: AGGRESSIVE TOKEN INTEGRITY CHECK
+    const validated = validateTokenState(token);
+    
+    // Log the final token state being set
+    if (validated && (validated.symbol === 'ETH' || validated.symbol === 'USDC')) {
+         // console.log('SETTING FROM TOKEN:', validated);
     }
     
-    setFromTokenState(token);
+    setFromTokenState(validated);
     setRoutes([]);
     setSelectedRoute(null);
     requestIdRef.current++;
   }, []);
 
   const setToToken = useCallback((token) => {
-    setToTokenState(token);
+    const validated = validateTokenState(token);
+    
+    if (validated && (validated.symbol === 'ETH' || validated.symbol === 'USDC')) {
+        // console.log('SETTING TO TOKEN:', validated);
+    }
+
+    setToTokenState(validated);
     setRoutes([]);
     setSelectedRoute(null);
     requestIdRef.current++;
   }, []);
 
   const handleSetFromAmount = useCallback((amount) => {
-    setFromAmount(amount);
-    if (amount !== fromAmount) {
-      setRoutes([]);
-      setSelectedRoute(null);
+    const cleanAmount = amount.replace(/,/g, '.'); // Handle comma input
+    setFromAmount(cleanAmount);
+    
+    if (cleanAmount !== fromAmount) {
+      // Don't wipe routes immediately to prevent UI flash, 
+      // let useEffect handle it via debounce
+      // setRoutes([]); 
+      // setSelectedRoute(null);
       requestIdRef.current++;
     }
   }, [fromAmount]);
@@ -262,7 +373,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     try {
       const isNative = fromToken.address === NATIVE_TOKEN_ADDRESS || 
                        fromToken.address === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
-      
+
       // Get user balance
       let userBalance;
       if (isNative) {
@@ -272,6 +383,26 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       }
       
       if (!userBalance) {
+        // If balance fetch failed (undefined), we shouldn't necessarily block.
+        // But for safety, we assume 0 if it's a known 'no balance' state, 
+        // or just don't set sufficiency if it's an RPC error.
+        // However, standard behavior is usually "assume 0".
+        // Let's check if it was a load error or just empty.
+        
+        if (loadingBalance) {
+             // Still loading, do nothing
+             return;
+        }
+
+        // RPC Error case: userBalance is undefined but we are connected
+        if (walletAddress && isEVMChain) {
+            logger.warn('Balance fetch result was empty/null - RPC issue?');
+            // Don't hard fail sufficiency, just return. 
+            // The UI will show "0" but we can still try to swap (simulation will fail if real balance is 0).
+            setBalance(null);
+            return;
+        }
+        
         setBalance(null);
         setHasSufficientBalance(false);
         setError({
@@ -464,22 +595,40 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
 
     try {
       // Fetch gas prices
-      const gasPrices = await lifiService.getGasPrices(fromChain.id);
-      setGasPrice(gasPrices);
+      const fetchedGasPrices = await lifiService.getGasPrices(fromChain.id);
+      setGasPrice(fetchedGasPrices);
 
-      // Prepare route request
+      // ✅ FAIL-SAFE: Verify Token Integrity before Request
+      if (fromToken.symbol === 'USDC' && 
+         (fromToken.address === NATIVE_TOKEN_ADDRESS || fromToken.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')) {
+           logger.error('⛔ BLOCKED: Attempted to fetch routes for USDC with Native Address');
+           setError({
+               title: 'Token Error',
+               message: 'Token data corrupted. Please refresh the page.',
+               recoverable: false
+           });
+           setLoading(false);
+           return;
+      }
+
       // Prepare route request
       const amountInSmallestUnit = parseUnits(currentAmount, fromToken.decimals).toString();
 
+      // Validate Token Chain ID match
+      if (toToken.chainId && toToken.chainId !== toChain.id) {
+          logger.warn(`⚠️ To Token/Chain Mismatch: Token ${toToken.symbol} (${toToken.chainId}) vs Chain (${toChain.id})`);
+          // OPTIONAL: Auto-correct or block?
+      }
+
       const routeParams = {
-        fromChainId: fromChain.id,
+        fromChainId: parseInt(fromChain.id),
         fromAmount: amountInSmallestUnit,
         fromTokenAddress: fromToken.address,
-        toChainId: toChain.id,
+        toChainId: parseInt(toChain.id),
         toTokenAddress: toToken.address,
-        // Use user address or zero address for guest estimation
-        fromAddress: walletAddress || '0x0000000000000000000000000000000000000000',
-        toAddress: customToAddress || walletAddress || '0x0000000000000000000000000000000000000000',
+        // Use user address or undefined for guest estimation
+        fromAddress: walletAddress || undefined,
+        toAddress: customToAddress || walletAddress || undefined,
         slippage,
         options: {
           order: routePreference === 'return' ? 'CHEAPEST' : 
@@ -488,6 +637,15 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
           exchanges: { deny: disabledExchanges },
         },
       };
+
+      // ✅ DEBUG LOG: Explicitly log the exact params sent to API
+      console.log('🚀 [useSwap] Requesting Routes:', {
+          fromChain: routeParams.fromChainId,
+          toChain: routeParams.toChainId,
+          fromToken: fromToken.symbol,
+          toToken: toToken.symbol,
+          amount: currentAmount,
+      });
 
       logger.log('Fetching routes...', routeParams);
 
@@ -664,7 +822,8 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     fromChain?.id, 
     toChain?.id, 
     fromToken?.address, 
-    toToken?.address
+    toToken?.address,
+    walletAddress // ✅ CRITICAL FIX: Re-fetch when wallet connects/disconnects
   ]);
 
   // ========== FIXED AUTO-REFRESH (DON'T REFRESH DURING EXECUTION) ==========
