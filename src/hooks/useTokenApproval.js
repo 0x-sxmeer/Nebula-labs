@@ -1,9 +1,9 @@
 /**
- * useTokenApproval Hook - REFACTORED
- * ✅ Fixed: Default to exact amount, better error handling, user confirmations
+ * useTokenApproval Hook - FIXED
+ * ✅ Solves "Looping Approval" by trusting transaction receipts immediately (Optimistic UI)
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { logger } from '../utils/logger';
@@ -41,9 +41,6 @@ export const ApprovalStatus = {
   ERROR: 'error'
 };
 
-/**
- * REFACTORED: Secure token approval hook
- */
 export const useTokenApproval = ({
   tokenAddress,
   ownerAddress,
@@ -51,24 +48,26 @@ export const useTokenApproval = ({
   amount,
   decimals = 18,
   isNative = false,
-  chainId, // ✅ Added chainId support
+  chainId,
 }) => {
   const [status, setStatus] = useState(ApprovalStatus.UNKNOWN);
   const [error, setError] = useState(null);
   const [showUnlimitedWarning, setShowUnlimitedWarning] = useState(false);
+  
+  // Track if we just successfully approved in this session
+  const [optimisticApproved, setOptimisticApproved] = useState(false);
 
   const skipApproval = isNative || !tokenAddress || !ownerAddress || !spenderAddress;
 
-  // Write approval
+  // 1. Write approval
   const { 
-    writeContract: approve,
+    writeContractAsync: approveAsync, // Use Async for better error handling
     data: approvalTxHash,
     isPending: isApproving,
-    error: approvalError,
     reset: resetApproval
   } = useWriteContract();
 
-  // Wait for confirmation
+  // 2. Wait for confirmation
   const { 
     isLoading: isConfirming, 
     isSuccess: isApprovalConfirmed 
@@ -76,307 +75,162 @@ export const useTokenApproval = ({
     hash: approvalTxHash
   });
 
-  // Read current allowance
+  // 3. Read current allowance
   const { 
     data: currentAllowance, 
     isLoading: isCheckingAllowance,
     refetch: refetchAllowance,
-    isError: allowanceError,
     error: allowanceCheckError
   } = useReadContract({
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [ownerAddress, spenderAddress],
-    chainId, // ✅ Explicit chainId to ensure we read from correct network
+    chainId,
     query: {
-      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress && !!chainId,
-      staleTime: 2000, // ✅ Reduced from 10000 to 2000 for faster updates
-      refetchInterval: (isApproving || isConfirming) ? 3000 : false, // Poll every 3s during txn
-      retry: 1, 
-      retryDelay: 1000
+      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress,
+      staleTime: 5000, // Increased stale time to prevent flickering
+      retry: 2,
     }
   });
 
-  // Calculate required amount
+  // 4. Calculate required amount
   const requiredAmount = useCallback(() => {
     if (!amount || isNaN(parseFloat(amount))) return BigInt(0);
     try {
       return parseUnits(amount.toString(), decimals);
     } catch (e) {
-      logger.error('Failed to parse amount:', e);
       return BigInt(0);
     }
   }, [amount, decimals]);
 
-  // Check if approval needed
+  // 5. Determine if approval is needed (Logic Layer)
   const needsApproval = useCallback(() => {
     if (skipApproval) return false;
+    if (optimisticApproved) return false; // Trust the recent transaction
+    
+    // If we haven't fetched data yet, assume needed unless we are native
     if (currentAllowance === undefined) return true;
     
     const required = requiredAmount();
     return currentAllowance < required;
-  }, [skipApproval, currentAllowance, requiredAmount]);
+  }, [skipApproval, currentAllowance, requiredAmount, optimisticApproved]);
 
-  // Update status
+  // 6. Main Status Logic
   useEffect(() => {
+    // A. Native tokens never need approval
     if (skipApproval) {
       setStatus(ApprovalStatus.APPROVED);
       return;
     }
 
-    if (isCheckingAllowance) {
-      setStatus(ApprovalStatus.CHECKING);
+    // B. If we just confirmed a tx, force APPROVED status (Optimistic UI)
+    if (isApprovalConfirmed || optimisticApproved) {
+      setStatus(ApprovalStatus.APPROVED);
+      if (!optimisticApproved) setOptimisticApproved(true);
       return;
     }
 
-    if (allowanceError) {
-      setStatus(ApprovalStatus.ERROR);
-      // ✅ Show actual error from Wagmi/RPC
-      setError(allowanceCheckError?.message || 'Failed to check allowance');
-      logger.error('Allowance check failed:', allowanceCheckError);
-      return;
-    }
-
+    // C. Handle Transaction States
     if (isApproving || isConfirming) {
       setStatus(ApprovalStatus.PENDING);
       return;
     }
 
-    if (approvalError) {
-      setStatus(ApprovalStatus.ERROR);
-      
-      // User-friendly error messages
-      if (approvalError.message?.includes('User rejected') ||
-          approvalError.message?.includes('User denied')) {
-        setError('Approval cancelled by user');
-      } else {
-        setError(approvalError.message || 'Approval failed');
-      }
+    // D. Handle Data Fetching States
+    // Only show "CHECKING" if we have NO data yet. 
+    // If we have data but are refetching, keep showing the old status to prevent flicker.
+    if (isCheckingAllowance && currentAllowance === undefined) {
+      setStatus(ApprovalStatus.CHECKING);
       return;
     }
 
-    if (needsApproval()) {
-      setStatus(ApprovalStatus.NEEDED);
-    } else {
-      setStatus(ApprovalStatus.APPROVED);
+    if (allowanceCheckError) {
+      // If RPC fails, but we thought we needed approval, stay on NEEDED
+      // This prevents UI breaking on flaky RPCs
+      logger.warn('Allowance check failed, defaulting to NEEDED', allowanceCheckError);
+      setStatus(ApprovalStatus.NEEDED); 
+      return;
+    }
+
+    // E. Final Calculation based on allowance
+    if (currentAllowance !== undefined) {
+      const required = requiredAmount();
+      if (currentAllowance >= required) {
+        setStatus(ApprovalStatus.APPROVED);
+      } else {
+        setStatus(ApprovalStatus.NEEDED);
+      }
     }
   }, [
     skipApproval, 
-    isCheckingAllowance, 
-    allowanceError, 
     isApproving, 
     isConfirming, 
-    approvalError, 
-    needsApproval
+    isApprovalConfirmed, 
+    optimisticApproved,
+    currentAllowance, 
+    isCheckingAllowance, 
+    allowanceCheckError,
+    requiredAmount
   ]);
 
-  // ✅ CRITICAL FIX #4: Exponential backoff polling
-  // Prevents RPC rate limiting and wallet disconnections
+  // 7. Silent Background Polling after Confirmation
   useEffect(() => {
     if (isApprovalConfirmed) {
-      logger.log('✅ Approval confirmed, starting smart polling...');
+      logger.log('✅ Transaction confirmed. Updating UI immediately.');
+      setOptimisticApproved(true); // Lock UI to approved
       
-      // Immediate refetch
-      refetchAllowance();
+      // Poll quietly in background to update cache
+      const timer = setTimeout(() => {
+        refetchAllowance();
+      }, 2000);
       
-      // Exponential backoff polling
-      let pollAttempts = 0;
-      const maxPolls = 5;
-      let pollingTimeout = null;
-      
-      const pollAllowance = () => {
-        if (pollAttempts >= maxPolls) {
-          logger.log('⏰ Stopped polling after max attempts');
-          return;
-        }
-        
-        // Exponential backoff: 3s, 4.5s, 6.75s, 10s, 10s
-        const delay = Math.min(3000 * Math.pow(1.5, pollAttempts), 10000);
-        
-        pollingTimeout = setTimeout(() => {
-          logger.log(`🔄 Polling attempt ${pollAttempts + 1}/${maxPolls} (delay: ${delay}ms)`);
-          
-          refetchAllowance()
-            .then(result => {
-              // Stop polling if approval is detected
-              const required = requiredAmount();
-              if (result?.data && result.data >= required) {
-                logger.log('✅ Approval detected, stopping polling');
-                return;
-              }
-              
-              pollAttempts++;
-              pollAllowance();
-            })
-            .catch(err => {
-              logger.error('Polling error:', err);
-              pollAttempts++;
-              pollAllowance(); // Continue even on error
-            });
-        }, delay);
-      };
-      
-      // Start exponential backoff polling
-      pollAllowance();
-      
-      // Cleanup on unmount
-      return () => {
-        if (pollingTimeout) {
-          clearTimeout(pollingTimeout);
-        }
-      };
+      return () => clearTimeout(timer);
     }
-  }, [isApprovalConfirmed, refetchAllowance, requiredAmount]);
+  }, [isApprovalConfirmed, refetchAllowance]);
 
-  /**
-   * FIXED: Default to EXACT amount (safer)
-   * Requires user confirmation for unlimited
-   */
-  const requestApproval = useCallback(async (unlimited = false, onUnlimitedRequest) => {
-    if (skipApproval) {
-      logger.log('Skipping approval - native token');
-      return { success: true, userCancelled: false };
-    }
-
-    // Warn about unlimited approvals
-    if (unlimited) {
-      setShowUnlimitedWarning(true);
-      
-      // Use callback for UI confirmation (better than window.confirm)
-      if (onUnlimitedRequest) {
-        const confirmed = await onUnlimitedRequest({
-          tokenSymbol: 'TOKEN', // Would come from token data
-          spenderName: 'LI.FI Router',
-          risk: 'HIGH'
-        });
-        
-        if (!confirmed) {
-          logger.log('User declined unlimited approval');
-          setShowUnlimitedWarning(false);
-          return { success: false, userCancelled: true };
-        }
-      } else {
-        // ✅ CRITICAL FIX #6: Enhanced security warning
-        const confirmed = confirm(
-          '⛔ CRITICAL SECURITY WARNING\n\n' +
-          'You are about to approve UNLIMITED access to your tokens.\n\n' +
-          '🔴 RISKS:\n' +
-          '• Contract bugs could drain your entire balance\n' +
-          '• Phishing attacks can steal all your tokens\n' +
-          '• Compromised contracts = total loss\n\n' +
-          '✅ RECOMMENDED: Approve only the exact amount needed.\n\n' +
-          '⚠️ Are you ABSOLUTELY SURE you want unlimited approval?'
-        );
-        
-        if (!confirmed) {
-          setShowUnlimitedWarning(false);
-          return { success: false, userCancelled: true };
-        }
-      }
-      
-      setShowUnlimitedWarning(false);
-    }
-
+  // 8. Request Approval Action
+  const requestApproval = useCallback(async (unlimited = false) => {
     setError(null);
     resetApproval();
 
     try {
-      // ✅ CRITICAL FIX: Add 1% buffer for exact approvals to prevent rounding issues
-      let approvalAmount;
+      const amountToApprove = unlimited ? maxUint256 : requiredAmount();
       
-      if (unlimited) {
-        approvalAmount = maxUint256;
-      } else {
-        const exactAmount = requiredAmount();
-        const buffer = exactAmount / 100n; // 1% buffer
-        approvalAmount = exactAmount + buffer;
-        
-        logger.log('🔐 Approval with 1% buffer:', {
-          exact: formatUnits(exactAmount, decimals),
-          withBuffer: formatUnits(approvalAmount, decimals),
-          buffer: formatUnits(buffer, decimals)
-        });
-      }
-      
-      logger.log('🔐 Requesting approval:', {
-        token: tokenAddress,
-        spender: spenderAddress,
-        amount: unlimited ? 'Unlimited ⚠️' : formatUnits(approvalAmount, decimals),
-        security: unlimited ? 'HIGH RISK' : '✅ SAFE (exact + 1% buffer)'
-      });
+      // Safety buffer for exact approvals (add 10% to avoid rounding errors)
+      const finalAmount = unlimited ? maxUint256 : (amountToApprove * 110n) / 100n;
 
-      // Wagmi v2: writeContract returns a promise
-      const hash = await approve({
+      logger.log(`🔐 Requesting approval for: ${tokenAddress}`);
+      
+      await approveAsync({
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
-        args: [spenderAddress, approvalAmount]
+        args: [spenderAddress, finalAmount]
       });
-
-      logger.log('✅ Approval transaction submitted:', hash);
-      return { success: true, hash, userCancelled: false };
-
+      
     } catch (err) {
       logger.error('❌ Approval failed:', err);
-      
-      // Handle user rejection separately
-      if (err.message?.includes('User rejected') || 
-          err.message?.includes('User denied')) {
-        setError('Approval cancelled by user');
-        return { success: false, userCancelled: true };
+      if (err.message?.includes('User rejected')) {
+        setError('Approval cancelled');
+      } else {
+        setError(err.message || 'Approval failed');
       }
-      
-      setError(err.message || 'Approval failed');
-      return { success: false, userCancelled: false, error: err };
     }
-  }, [skipApproval, tokenAddress, spenderAddress, decimals, requiredAmount, approve, resetApproval]);
-
-  /**
-   * Revoke approval (set to 0)
-   */
-  const revokeApproval = useCallback(async () => {
-    if (skipApproval) return;
-
-    try {
-      const hash = await approve({
-        address: tokenAddress,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [spenderAddress, BigInt(0)]
-      });
-      
-      logger.log('✅ Revoked approval:', hash);
-    } catch (err) {
-      logger.error('❌ Revoke failed:', err);
-      setError(err.message);
-    }
-  }, [skipApproval, tokenAddress, spenderAddress, approve]);
-
-  /**
-   * Reset error state (useful for retry)
-   */
-  const resetError = useCallback(() => {
-    setError(null);
-    resetApproval();
-  }, [resetApproval]);
+  }, [tokenAddress, spenderAddress, requiredAmount, approveAsync, resetApproval]);
 
   return {
     status,
     error,
     needsApproval: needsApproval(),
-    isApproved: status === ApprovalStatus.APPROVED,
+    // Combine states for easier UI consumption
+    isApproved: status === ApprovalStatus.APPROVED || optimisticApproved,
     isPending: status === ApprovalStatus.PENDING,
     isChecking: status === ApprovalStatus.CHECKING,
-    currentAllowance,
-    formattedAllowance: currentAllowance 
-      ? formatUnits(currentAllowance, decimals) 
-      : '0',
     requestApproval,
-    revokeApproval,
-    refetchAllowance,
+    formattedAllowance: currentAllowance ? formatUnits(currentAllowance, decimals) : '0',
     approvalTxHash,
-    resetError,
+    resetError: () => setError(null),
     showUnlimitedWarning,
     setShowUnlimitedWarning,
   };

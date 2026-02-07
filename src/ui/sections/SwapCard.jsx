@@ -1173,7 +1173,7 @@ const SwapCard = () => {
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
-                                    disabled={!isConnected || isApprovalPending || isCheckingApproval}
+                                    disabled={!isConnected || isApprovalPending}
                                     onClick={() => handleApprove(useInfiniteApproval)} 
                                     style={{
                                         background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
@@ -1182,8 +1182,6 @@ const SwapCard = () => {
                                 >
                                     {isApprovalPending ? (
                                         <><RefreshCw className="spin" /> Approving...</>
-                                    ) : isCheckingApproval ? (
-                                        <><RefreshCw className="spin" /> Checking...</>
                                     ) : (
                                         <><Lock size={18} /> Approve {fromToken?.symbol}</>
                                     )}
