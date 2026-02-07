@@ -612,17 +612,21 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       }
 
       // Prepare route request
-      const amountInSmallestUnit = parseUnits(currentAmount, fromToken.decimals).toString();
-
-      // Validate Token Chain ID match
+      // (Normalization moved to Service Layer)
+      // Logic for toToken chain mismatch
       if (toToken.chainId && toToken.chainId !== toChain.id) {
           logger.warn(`⚠️ To Token/Chain Mismatch: Token ${toToken.symbol} (${toToken.chainId}) vs Chain (${toChain.id})`);
           // OPTIONAL: Auto-correct or block?
       }
 
+      // Prepare route request
+      // ✅ CRITICAL FIX: Pass Human-Readable amount and Decimals to Service
+      // The Service now handles the safe normalization to atomic units.
+      
       const routeParams = {
         fromChainId: parseInt(fromChain.id),
-        fromAmount: amountInSmallestUnit,
+        fromAmount: currentAmount, // "1.5"
+        fromTokenDecimals: fromToken.decimals, // 18
         fromTokenAddress: fromToken.address,
         toChainId: parseInt(toChain.id),
         toTokenAddress: toToken.address,

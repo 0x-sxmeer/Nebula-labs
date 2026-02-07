@@ -621,6 +621,13 @@ const SwapCard = () => {
         ? parseFloat(selectedRoute.inputUSD) 
         : (parseFloat(fromAmount || '0') * safePrice);
 
+    // ✅ CRITICAL FIX: Safe Stablecoin Display
+    // If we have a stablecoin but the value is showing > $2.00/unit, force it to $1.00
+    // This catches cases where the wrong price was fetched or route data is mismatched.
+    const displayedInputUSD = (isStable && inputValUSD > (parseFloat(fromAmount || 0) * 2.0))
+        ? parseFloat(fromAmount || 0)
+        : inputValUSD;
+
     const outputValUSD = selectedRoute?.outputUSD 
         ? parseFloat(selectedRoute.outputUSD) 
         : (selectedRoute?.toAmount 
@@ -782,14 +789,14 @@ const SwapCard = () => {
                                             <ChainTokenSelector 
                                                 selectedChain={fromChain}
                                                 selectedToken={fromToken}
-                                                onChainSelect={(c) => { setFromChain(c); setFromToken(null); }}
+                                                onChainSelect={setFromChain} // ✅ FIX: Use internal preservation logic, don't force null
                                                 onTokenSelect={setFromToken}
                                                 label="From"
                                             />
                                         </div>
                                         <div className="input-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                                             <div className="usd-value">
-                                                ≈ ${inputValUSD.toFixed(2)}
+                                                ≈ ${displayedInputUSD.toFixed(2)}
                                             </div>
                                             {!hasSufficientBalance && (
                                                 <div style={{ color: 'var(--error)', fontSize: '0.75rem', fontWeight: 600 }}>

@@ -14,6 +14,17 @@ import { logger } from '../utils/logger.js';
  * @property {number} reset - Seconds until reset
  */
 
+/**
+ * Converts a human amount (e.g., 1.5) to a token's base unit (e.g., 1500000)
+ * Uses BigInt for precision safety.
+ */
+const toBaseUnit = (amount, decimals) => {
+  if (!amount || isNaN(amount)) return "0";
+  const [integer, fraction = ""] = amount.toString().split(".");
+  const paddedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
+  return (BigInt(integer) * BigInt(10) ** BigInt(decimals) + BigInt(paddedFraction)).toString();
+};
+
 class LiFiService {
   constructor() {
     this.backendUrl = import.meta.env.VITE_BACKEND_API_URL;
@@ -395,7 +406,8 @@ class LiFiService {
       fromChainId,
       fromTokenAddress,
       fromAddress,
-      fromAmount,
+      fromAmount, // Now expects Human-Readable Amount (e.g. "1.5")
+      fromTokenDecimals, // REQUIRED: Need decimals for normalization
       toChainId,
       toTokenAddress,
       toAddress,
@@ -403,12 +415,15 @@ class LiFiService {
       options = {},
     } = params;
 
+    // ✅ CRITICAL FIX: centralized normalization
+    const fromAmountAtomic = toBaseUnit(fromAmount, fromTokenDecimals || 18);
+
     try {
       const requestBody = {
         fromChainId: Number(fromChainId),
         fromTokenAddress: String(fromTokenAddress),
         fromAddress: fromAddress ? String(fromAddress) : undefined,
-        fromAmount: String(fromAmount),
+        fromAmount: fromAmountAtomic, // Sent as atomic units
         toChainId: Number(toChainId),
         toTokenAddress: String(toTokenAddress),
         toAddress: (toAddress || fromAddress) ? String(toAddress || fromAddress) : undefined,
@@ -422,7 +437,7 @@ class LiFiService {
         },
       };
 
-      logger.log('📡 Fetching routes:', requestBody);
+      logger.log('📡 Fetching routes:', { ...requestBody, originalAmount: fromAmount });
 
       const data = await this.makeRequest('/advanced/routes', {
         method: 'POST',

@@ -10,6 +10,10 @@ const SwapPage = lazy(() => import('./pages/SwapPage'));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+import DebugPanel from './ui/components/DebugPanel'; // ✅ Debug Tool
+
+import { useAccount } from 'wagmi';
+import { useEffect } from 'react';
 
 function App() {
   // ✅ NEW: Handle wallet disconnection cleanup
@@ -33,6 +37,7 @@ function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
             </Routes>
             <WalletCleanup />
+            <DebugPanel />
           </div>
         </Suspense>
       </Router>
@@ -40,17 +45,13 @@ function App() {
   );
 }
 
-// Helper component to use hooks inside Provider
-import { useAccount } from 'wagmi';
-import { useEffect } from 'react';
-
-function WalletCleanup() {
+const WalletCleanup = () => {
     const { isConnected } = useAccount();
 
     useEffect(() => {
         if (!isConnected) {
             // Clear sensitive local storage
-            localStorage.removeItem('lifi_cache_v1');
+            localStorage.removeItem('lifi_cache_v4_permanent');
             localStorage.removeItem('swap_history');
             console.log('🧹 Wallet disconnected - cache cleared');
         }

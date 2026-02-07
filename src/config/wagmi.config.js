@@ -1,4 +1,4 @@
-import { http, createConfig } from "wagmi";
+import { http, createConfig, fallback } from "wagmi";
 import {
   mainnet,
   polygon,
@@ -33,42 +33,49 @@ export const config = createConfig({
     ...(projectId ? [walletConnect({ projectId })] : []),
   ],
   // ✅ CRITICAL FIX #5: RPC Fallback Strategy with retry configuration
+  // ✅ CRITICAL FIX: Resilient RPC Strategy (Multiple Fallbacks)
   transports: {
-    [mainnet.id]: http('/api/rpc-proxy?chain=ethereum', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [polygon.id]: http('/api/rpc-proxy?chain=polygon', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [bsc.id]: http('/api/rpc-proxy?chain=bsc', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [arbitrum.id]: http('/api/rpc-proxy?chain=arbitrum', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [optimism.id]: http('/api/rpc-proxy?chain=optimism', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [base.id]: http('/api/rpc-proxy?chain=base', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
-    [avalanche.id]: http('/api/rpc-proxy?chain=avalanche', {
-      timeout: 10_000,
-      retryCount: 3,
-      retryDelay: 1000,
-    }),
+    [mainnet.id]: fallback([
+      http('https://cloudflare-eth.com'),
+      http('https://rpc.ankr.com/eth'),
+      http('https://eth.llamarpc.com')
+    ]),
+    [polygon.id]: fallback([
+      http('https://polygon-rpc.com'),
+      http('https://rpc.ankr.com/polygon'),
+      http('https://1rpc.io/matic')
+    ]),
+    [bsc.id]: fallback([
+      http('https://binance.llamarpc.com'),
+      http('https://bsc-dataseed1.ninicoin.io'),
+      http('https://bsc-dataseed.binance.org'),
+      http('https://bsc-dataseed1.defibit.io'),
+      http('https://1rpc.io/bnb'),
+      http('https://rpc.ankr.com/bsc'),
+      http('https://bsc-dataseed2.binance.org'),
+      http('https://bsc-dataseed3.binance.org'),
+      http('https://public.stackup.sh/api/v1/node/bsc-mainnet')
+    ]),
+    [arbitrum.id]: fallback([
+      http('https://arb1.arbitrum.io/rpc'),
+      http('https://rpc.ankr.com/arbitrum'),
+      http('https://1rpc.io/arb')
+    ]),
+    [optimism.id]: fallback([
+      http('https://mainnet.optimism.io'),
+      http('https://rpc.ankr.com/optimism'),
+      http('https://1rpc.io/op')
+    ]),
+    [base.id]: fallback([
+      http('https://mainnet.base.org'),
+      http('https://rpc.ankr.com/base'),
+      http('https://1rpc.io/base')
+    ]),
+    [avalanche.id]: fallback([
+      http('https://api.avax.network/ext/bc/C/rpc'),
+      http('https://rpc.ankr.com/avalanche'),
+      http('https://1rpc.io/avax/c')
+    ]),
   },
   storage: null,
 });
