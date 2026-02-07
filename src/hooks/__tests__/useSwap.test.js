@@ -13,6 +13,9 @@ vi.mock('wagmi', () => ({
   useReadContract: vi.fn(() => ({ data: 1000000n })),
   useWriteContract: vi.fn(() => ({ writeContractAsync: vi.fn() })),
   useConfig: vi.fn(() => ({})),
+  createConfig: vi.fn(),
+  fallback: vi.fn(),
+  http: vi.fn(),
 }));
 
 vi.mock('../../services/lifiService', () => ({

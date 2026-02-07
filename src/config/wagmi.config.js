@@ -46,15 +46,9 @@ export const config = createConfig({
       http('https://1rpc.io/matic')
     ]),
     [bsc.id]: fallback([
-      http('https://binance.llamarpc.com'),
-      http('https://bsc-dataseed1.ninicoin.io'),
-      http('https://bsc-dataseed.binance.org'),
-      http('https://bsc-dataseed1.defibit.io'),
-      http('https://1rpc.io/bnb'),
-      http('https://rpc.ankr.com/bsc'),
+      http('https://bsc-dataseed1.binance.org'),
       http('https://bsc-dataseed2.binance.org'),
-      http('https://bsc-dataseed3.binance.org'),
-      http('https://public.stackup.sh/api/v1/node/bsc-mainnet')
+      http('https://bsc-dataseed3.binance.org')
     ]),
     [arbitrum.id]: fallback([
       http('https://arb1.arbitrum.io/rpc'),

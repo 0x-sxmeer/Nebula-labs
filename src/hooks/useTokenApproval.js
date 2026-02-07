@@ -50,7 +50,8 @@ export const useTokenApproval = ({
   spenderAddress,
   amount,
   decimals = 18,
-  isNative = false
+  isNative = false,
+  chainId, // ✅ Added chainId support
 }) => {
   const [status, setStatus] = useState(ApprovalStatus.UNKNOWN);
   const [error, setError] = useState(null);
@@ -63,14 +64,19 @@ export const useTokenApproval = ({
     data: currentAllowance, 
     isLoading: isCheckingAllowance,
     refetch: refetchAllowance,
-    isError: allowanceError
+    isError: allowanceError,
+    error: allowanceCheckError
   } = useReadContract({
     address: tokenAddress,
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [ownerAddress, spenderAddress],
+    chainId, // ✅ Explicit chainId to ensure we read from correct network
     query: {
-      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress
+      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress && !!chainId,
+      staleTime: 10000, // ✅ Optimized for public RPCs (10s)
+      retry: 1, 
+      retryDelay: 1000
     }
   });
 
@@ -125,7 +131,9 @@ export const useTokenApproval = ({
 
     if (allowanceError) {
       setStatus(ApprovalStatus.ERROR);
-      setError('Failed to check allowance');
+      // ✅ Show actual error from Wagmi/RPC
+      setError(allowanceCheckError?.message || 'Failed to check allowance');
+      logger.error('Allowance check failed:', allowanceCheckError);
       return;
     }
 

@@ -828,10 +828,11 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       setIsRefreshing(false);
     }
   }, [
-      // fromAmount removed for stability
-      fromChain, fromToken, toChain, toToken, slippage, 
-      walletAddress, disabledBridges, disabledExchanges, customToAddress, 
-      routePreference
+    // fromAmount removed for stability
+  ], [
+    /* fromAmount removed */ fromChain, fromToken, toChain, toToken, slippage, 
+    walletAddress, disabledBridges, disabledExchanges, customToAddress, 
+    routePreference
   ]);
 
   // ========== DEBOUNCED AMOUNT LOGIC ==========

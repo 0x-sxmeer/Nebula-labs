@@ -24,7 +24,7 @@ export const LIFI_CONFIG = {
 export const RPC_URLS = {
   1: 'https://eth.llamarpc.com',
   137: 'https://polygon-rpc.com',
-  56: 'https://bsc-dataseed.binance.org',
+  56: 'https://bsc-dataseed1.binance.org',
   42161: 'https://arb1.arbitrum.io/rpc',
   10: 'https://mainnet.optimism.io',
   8453: 'https://mainnet.base.org',

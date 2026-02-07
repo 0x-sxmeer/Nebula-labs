@@ -2,6 +2,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useTokenApproval, ApprovalStatus } from '../useTokenApproval';
+import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 
 // Mock Wagmi
 const mockRefetchAllowance = vi.fn();
@@ -37,8 +38,6 @@ vi.mock('../../utils/logger', () => ({
   }
 }));
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-
 describe('useTokenApproval', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,13 +49,13 @@ describe('useTokenApproval', () => {
   });
 
   it('should skip approval for native tokens', () => {
-    // Setup logic for skipping
     const { result } = renderHook(() => useTokenApproval({
         tokenAddress: '0xNative',
         ownerAddress: '0xUser',
         spenderAddress: '0xSpender',
         amount: '1.0',
-        isNative: true
+        isNative: true,
+        chainId: 1
     }));
 
     expect(result.current.status).toBe(ApprovalStatus.APPROVED);
@@ -76,7 +75,8 @@ describe('useTokenApproval', () => {
         ownerAddress: '0xUser',
         spenderAddress: '0xSpender',
         amount: '10.0',
-        isNative: false
+        isNative: false,
+        chainId: 1
     }));
 
     expect(result.current.status).toBe(ApprovalStatus.CHECKING);
@@ -95,7 +95,8 @@ describe('useTokenApproval', () => {
         spenderAddress: '0xSpender',
         amount: '10.0', // Requires 10 * 10^18
         decimals: 18,
-        isNative: false
+        isNative: false,
+        chainId: 1
     }));
 
     expect(result.current.status).toBe(ApprovalStatus.NEEDED);
@@ -114,7 +115,8 @@ describe('useTokenApproval', () => {
         ownerAddress: '0xUser',
         spenderAddress: '0xSpender',
         amount: '10.0',
-        isNative: false
+        isNative: false,
+        chainId: 1
     }));
 
     expect(result.current.status).toBe(ApprovalStatus.APPROVED);
@@ -140,17 +142,16 @@ describe('useTokenApproval', () => {
         ownerAddress: '0xUser',
         spenderAddress: '0xSpender',
         amount: '1.0',
-        isNative: false
+        isNative: false,
+        chainId: 1
     }));
 
-    // Expect immediate refetch due to confirmation
     expect(mockRefetchAllowance).toHaveBeenCalled();
 
-    // Advance timer to trigger poll
     await act(async () => {
-        vi.advanceTimersByTime(3000); // 1st poll
+        vi.advanceTimersByTime(11000); // > 10000ms staleTime
     });
 
-    expect(mockRefetchAllowance).toHaveBeenCalledTimes(2); // Initial + 1st poll
+    expect(mockRefetchAllowance).toHaveBeenCalledTimes(2);
   });
 });

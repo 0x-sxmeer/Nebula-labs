@@ -278,7 +278,8 @@ const SwapCard = () => {
         spenderAddress: spenderAddress,
         amount: fromAmount,
         decimals: fromToken?.decimals || 18,
-        isNative: isNativeToken
+        isNative: isNativeToken,
+        chainId: fromChain?.id // ✅ Pass Chain ID
     });
 
     // Issue #8 fix: Wrapper to clear errors before retrying approval
