@@ -10,7 +10,7 @@
  * @param {boolean} isStablePair - True if swapping like USDC-DAI
  * @returns {number} Slippage as a decimal (e.g. 0.005 for 0.5%)
  */
-export function calculateDynamicSlippage(priceHistory: number[], isStablePair: boolean): number {
+export function calculateDynamicSlippage(priceHistory, isStablePair) {
     // 1. Baseline for Stablecoins
     if (isStablePair) {
         return 0.001; // 0.1% strict for stables
@@ -22,9 +22,9 @@ export function calculateDynamicSlippage(priceHistory: number[], isStablePair: b
     }
 
     const n = priceHistory.length;
-    const mean = priceHistory.reduce((a: number, b: number) => a + b, 0) / n;
+    const mean = priceHistory.reduce((a, b) => a + b, 0) / n;
     
-    const variance = priceHistory.reduce((sum: number, price: number) => {
+    const variance = priceHistory.reduce((sum, price) => {
         return sum + Math.pow(price - mean, 2);
     }, 0) / n;
     

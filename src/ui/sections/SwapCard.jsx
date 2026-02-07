@@ -14,6 +14,7 @@ import { useSwapHistory } from '../../hooks/useSwapHistory';
 import { useTokenApproval, ApprovalStatus } from '../../hooks/useTokenApproval';
 import { RouteCardSkeleton } from '../../components/SkeletonLoaders';
 import { useSwapExecution } from '../../hooks/useSwapExecution';
+import { useOutputUSDValue, useInputUSDValue } from '../../hooks/useOutputUSDValue';
 import { useTransactionStatus } from '../../hooks/useTransactionStatus';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useSwitchChain, useChainId } from 'wagmi';
@@ -136,6 +137,9 @@ const SwapCard = () => {
     const currentChainId = useChainId();
     const { executeSwap, monitoringState } = useSwapExecution();
     
+    // ✅ CRITICAL FIX: Use enhanced USD hooks
+
+
     // State for Flip
     const [isFlipped, setIsFlipped] = useState(false);
     const [routePriority, setRoutePriority] = useState('return'); // return | gas | time
@@ -209,6 +213,10 @@ const SwapCard = () => {
 
     // Initialize Swap History
     const { saveSwap, updateStatus, getExplorerUrl } = useSwapHistory(walletAddress);
+
+    // ✅ CRITICAL FIX: Use enhanced USD hooks (Moved after useSwap to fix ReferenceError)
+    const displayedOutputUSD = useOutputUSDValue(selectedRoute, toToken);
+    const displayedInputUSD = useInputUSDValue(fromAmount, fromToken, selectedRoute);
 
     // ✅ HIGH #1: Stale Quote Detection (Moved here to fix ReferenceError)
     // ✅ HIGH #1: Stale Quote Detection (Calculated on every render/forceUpdate)
@@ -613,29 +621,9 @@ const SwapCard = () => {
         }
     }, [activeHash, status, updateStatus]);
     // Calculate Value Difference (Input USD vs Output USD)
-    const rawPrice = parseFloat(fromToken?.priceUSD || '0');
-    const isStable = ['USDC', 'USDT', 'DAI', 'BUSD'].includes(fromToken?.symbol?.toUpperCase());
-    const safePrice = (isStable && rawPrice > 2.0) ? 1.0 : rawPrice;
-    
-    const inputValUSD = selectedRoute?.inputUSD 
-        ? parseFloat(selectedRoute.inputUSD) 
-        : (parseFloat(fromAmount || '0') * safePrice);
-
-    // ✅ CRITICAL FIX: Safe Stablecoin Display
-    // If we have a stablecoin but the value is showing > $2.00/unit, force it to $1.00
-    // This catches cases where the wrong price was fetched or route data is mismatched.
-    const displayedInputUSD = (isStable && inputValUSD > (parseFloat(fromAmount || 0) * 2.0))
-        ? parseFloat(fromAmount || 0)
-        : inputValUSD;
-
-    const outputValUSD = selectedRoute?.outputUSD 
-        ? parseFloat(selectedRoute.outputUSD) 
-        : (selectedRoute?.toAmount 
-            ? (parseFloat(selectedRoute.toAmount) / (10 ** (toToken?.decimals || selectedRoute?.action?.toToken?.decimals || 18))) * parseFloat(toToken?.priceUSD || '0')
-            : 0);
-
-    const valueDiff = outputValUSD - inputValUSD;
-    const valueDiffPct = (inputValUSD > 0) ? (valueDiff / inputValUSD) * 100 : 0;
+    // Calculate Value Difference (Input USD vs Output USD)
+    const valueDiff = displayedOutputUSD - displayedInputUSD;
+    const valueDiffPct = (displayedInputUSD > 0) ? (valueDiff / displayedInputUSD) * 100 : 0;
 
     // Auto Slippage Logic
     useEffect(() => {
@@ -836,7 +824,7 @@ const SwapCard = () => {
                                         </div>
                                         <div className="input-footer" style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginTop: '8px' }}>
                                             <div className="usd-value">
-                                                {loading ? <Skeleton height="14px" width="80px" borderRadius="4px" /> : `≈ $${outputValUSD.toFixed(2)}`}
+                                                {loading ? <Skeleton height="14px" width="80px" borderRadius="4px" /> : `≈ $${displayedOutputUSD.toFixed(2)}`}
                                             </div>
                                         </div>
                                     </div>

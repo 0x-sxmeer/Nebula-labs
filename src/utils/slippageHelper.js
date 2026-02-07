@@ -8,7 +8,7 @@ import { calculateDynamicSlippage } from './slippage';
 /**
  * Determines if a token pair consists of stablecoins
  */
-export function isStablePair(token0Symbol: string, token1Symbol: string): boolean {
+export function isStablePair(token0Symbol, token1Symbol) {
   const stablecoins = ['USDC', 'USDT', 'DAI', 'BUSD', 'FRAX', 'LUSD', 'UST', 'TUSD'];
   
   const token0Stable = stablecoins.some(stable => 
@@ -27,10 +27,10 @@ export function isStablePair(token0Symbol: string, token1Symbol: string): boolea
  * In production, this would call a price oracle or historical API
  */
 export async function fetchPriceHistory(
-  fromTokenAddress: string,
-  toTokenAddress: string,
-  chainId: number
-): Promise<number[]> {
+  fromTokenAddress,
+  toTokenAddress,
+  chainId
+) {
   // Mock implementation - in production, fetch from CoinGecko, Chainlink, or similar
   // For now, return empty array to use fallback slippage
   
@@ -39,7 +39,7 @@ export async function fetchPriceHistory(
     // Example: CoinGecko API, Chainlink Price Feeds, or DEX historical data
     
     // Mock: Generate some sample price data based on current time
-    const mockPrices: number[] = [];
+    const mockPrices = [];
     const basePrice = 1.0;
     
     // Simulate 60 data points (1 per minute for last hour)
@@ -60,10 +60,10 @@ export async function fetchPriceHistory(
  * Gets recommended slippage for a token pair
  */
 export async function getRecommendedSlippage(
-  fromToken: { symbol: string; address: string },
-  toToken: { symbol: string; address: string },
-  chainId: number
-): Promise<number> {
+  fromToken,
+  toToken,
+  chainId
+) {
   const isStable = isStablePair(fromToken.symbol, toToken.symbol);
   
   // For stable pairs, use strict slippage immediately

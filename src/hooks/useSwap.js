@@ -3,6 +3,7 @@ import { useBalance, useReadContract, useConfig, useWriteContract } from 'wagmi'
 import { simulateContract } from '@wagmi/core';
 import { parseUnits, formatUnits } from 'viem';
 import { lifiService } from '../services/lifiService';
+import { validateRoutes } from '../utils/routeValidation.jsx';
 import { LIFI_CONFIG, NATIVE_TOKEN_ADDRESS, LARGE_CHAIN_ID_THRESHOLD } from '../config/lifi.config';
 import { config } from '../config/wagmi.config';
 import { parseApiError, LIFI_ERROR_CODES } from '../utils/errorHandler';
@@ -672,8 +673,33 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
         return;
       }
 
+      // ✅ VALIDATION: Filter out invalid routes
+      const { validRoutes, warnings } = validateRoutes(fetchedRoutes);
+
+      if (warnings.length > 0) {
+        logger.warn('[useSwap] Route validation warnings:', warnings);
+      }
+      
+      // const { validRoutes: validatedRoutes, invalidCount } = validateRoutes(fetchedRoutes);
+      // const validRoutes = fetchedRoutes; // Bypass validation
+
+
+      if (validRoutes.length === 0 && fetchedRoutes.length > 0) {
+           logger.warn('⚠️ All fetched routes failed validation');
+           if (!silent) {
+               setError({
+                   title: 'No Valid Routes',
+                   message: 'Routes were found but failed validation checks.',
+                   recoverable: true
+               });
+           }
+           setRoutes([]);
+           setSelectedRoute(null);
+           return;
+      }
+
       // Process routes
-      const routesWithMetadata = fetchedRoutes.map((route, index) => {
+      const routesWithMetadata = validRoutes.map((route, index) => {
         const outputAmount = route.toAmount || '0';
         const outputFormatted = formatUnits(
           BigInt(outputAmount),

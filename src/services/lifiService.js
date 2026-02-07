@@ -15,16 +15,68 @@ import { logger } from '../utils/logger.js';
  */
 
 // FIXED: Handles scientific notation and ensures atomic unit precision
-const toBaseUnit = (amount, decimals) => {
-  if (!amount || isNaN(amount) || decimals === undefined) return "0";
+export const toBaseUnit = (amount, decimals) => {
+  // === VALIDATION ===
+  if (!amount || amount === '' || decimals === undefined || decimals === null) {
+    console.warn('[toBaseUnit] Invalid input:', { amount, decimals });
+    return "0";
+  }
+  
+  // Convert to number for validation
+  const numericAmount = Number(amount);
+  if (isNaN(numericAmount)) {
+    console.error('[toBaseUnit] Amount is NaN:', amount);
+    return "0";
+  }
+  
+  if (numericAmount === 0) {
+    return "0";
+  }
+  
+  if (numericAmount < 0) {
+    console.error('[toBaseUnit] Negative amount not allowed:', amount);
+    return "0";
+  }
+  
+  // === CONVERSION ===
   try {
-    // Convert to fixed string to handle scientific notation (e.g., 1e-7)
-    const stringAmount = Number(amount).toFixed(decimals);
-    const [integer, fraction = ""] = stringAmount.split(".");
-    const paddedFraction = fraction.padEnd(decimals, "0").slice(0, decimals);
-    return (BigInt(integer) * BigInt(10) ** BigInt(decimals) + BigInt(paddedFraction)).toString();
-  } catch (e) {
-    logger.error("Normalization Error:", e);
+    // Remove whitespace and convert to string  
+    let cleanAmount = String(amount).trim();
+    
+    // Handle scientific notation (e.g., "1e-7", "1.5e+3")
+    if (cleanAmount.includes('e') || cleanAmount.includes('E')) {
+      // Convert to fixed-point notation with enough decimal places
+      cleanAmount = numericAmount.toFixed(decimals);
+    }
+    
+    // Split into whole and fractional parts
+    const [whole, fractional = ''] = cleanAmount.split('.');
+    
+    // Validate whole part
+    if (whole === '' || whole === undefined) {
+      console.error('[toBaseUnit] No whole number part:', amount);
+      return "0";
+    }
+    
+    // Pad or truncate fractional part to exact decimals
+    const paddedFractional = fractional
+      .padEnd(decimals, '0')  // Pad with zeros if needed
+      .slice(0, decimals);      // Truncate if too long
+    
+    // Combine using BigInt for precision
+    // Formula: (whole * 10^decimals) + fractional
+    const wholeBigInt = BigInt(whole || '0') * (BigInt(10) ** BigInt(decimals));
+    const fractionalBigInt = BigInt(paddedFractional || '0');
+    const result = wholeBigInt + fractionalBigInt;
+    
+    return result.toString();
+    
+  } catch (error) {
+    console.error('[toBaseUnit] Conversion error:', {
+      error: error.message,
+      amount,
+      decimals
+    });
     return "0";
   }
 };

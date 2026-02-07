@@ -23,7 +23,8 @@ describe('lifiService', () => {
         toChainId: 137,
         fromTokenAddress: '0xETH',
         toTokenAddress: '0xMATIC',
-        fromAmount: '1000000000000000000',
+        fromAmount: '1', // Human readable
+        fromTokenDecimals: 18, // Required
         fromAddress: '0xUser'
       });
 

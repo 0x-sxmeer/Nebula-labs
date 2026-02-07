@@ -18,6 +18,7 @@ export default defineConfig({
       globals: {
         Buffer: true,
         global: true,
+        process: true,
       },
       // Whether to polyfill `node:` protocol imports.
       // Defaults to `true`.
@@ -56,15 +57,16 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    sourcemap: false, // ✅ Save memory during build
-    chunkSizeWarningLimit: 1000, // Increase limit to 1MB
+    sourcemap: true, // Enable for debugging 
+    minify: false, // Disable minification for debugging
+    chunkSizeWarningLimit: 2000, 
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-wagmi': ['wagmi', 'viem', '@rainbow-me/rainbowkit'],
-          'vendor-ui': ['framer-motion', 'lucide-react', 'styled-components'], 
-        }
+        // manualChunks: {
+        //   'vendor-react': ['react', 'react-dom'],
+        //   'vendor-wagmi': ['wagmi', 'viem', '@rainbow-me/rainbowkit'],
+        //   'vendor-ui': ['framer-motion', 'lucide-react', 'styled-components'], 
+        // }
       }
     }
   },
