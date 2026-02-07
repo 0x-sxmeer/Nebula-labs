@@ -1140,53 +1140,33 @@ const SwapCard = () => {
                                 <PriceImpactWarning impact={Math.abs(valueDiffPct)} />
                             )}
 
-                            {/* Approval Status Indicator */}
+                            {/* Enhanced Approval Status Indicator */}
                             {fromToken && !isNativeToken && selectedRoute && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px',
-                                    padding: '8px 12px',
-                                    marginBottom: '10px',
-                                    borderRadius: '10px',
-                                    fontSize: '0.85rem',
-                                    background: isApproved 
-                                        ? 'rgba(76, 175, 80, 0.1)' 
-                                        : needsApproval 
-                                            ? 'rgba(255, 193, 7, 0.1)' 
-                                            : 'rgba(255, 255, 255, 0.05)',
-                                    border: `1px solid ${isApproved 
-                                        ? 'rgba(76, 175, 80, 0.3)' 
-                                        : needsApproval 
-                                            ? 'rgba(255, 193, 7, 0.3)' 
-                                            : 'rgba(255, 255, 255, 0.1)'}`,
-                                    color: isApproved ? '#4CAF50' : needsApproval ? '#FFC107' : '#888'
-                                }}>
+                                <div className={`approval-status-container ${isApproved ? 'status-approved' : 'status-needed'}`}>
                                     {isCheckingApproval ? (
-                                        <><RefreshCw size={14} className="spin" /> Checking approval...</>
-                                    ) : isApprovalPending ? (
-                                        <><RefreshCw size={14} className="spin" /> Approving {fromToken?.symbol}...</>
-                                    ) : isApproved ? (
-                                        <><Unlock size={14} /> {fromToken?.symbol} approved</>
-                                    ) : needsApproval ? (
-                                        <><Lock size={14} /> {fromToken?.symbol} requires approval</>
-                                    ) : null}
+                                        <div className="skeleton-loader" style={{height: '24px', width: '100%', borderRadius: '8px'}}></div> 
+                                    ) : (
+                                        <div className="status-label">
+                                            {isApproved ? <Unlock size={14} /> : <Lock size={14} />}
+                                            <span>{fromToken?.symbol} {isApproved ? 'Authorized' : 'Requires Approval'}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
 
                             {/* Swap/Approve Button */}
                             {needsApproval && !isApproved && selectedRoute && (
-                                <div style={{marginBottom: '8px', display:'flex', alignItems:'center', gap:'8px', fontSize:'0.75rem', color:'#aaa', justifyContent:'center'}}>
-                                    <input 
-                                        type="checkbox" 
-                                        checked={useInfiniteApproval}
-                                        onChange={(e) => setUseInfiniteApproval(e.target.checked)}
-                                        id="inf-approval"
-                                        style={{cursor:'pointer'}}
-                                    />
-                                    <label htmlFor="inf-approval" style={{cursor:'pointer'}}>Enable Infinite Approval (Save Gas)</label>
+                                <div className="infinite-approval-toggle">
+                                    <label className="switch">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={useInfiniteApproval}
+                                            onChange={(e) => setUseInfiniteApproval(e.target.checked)}
+                                        />
+                                        <span className="slider round"></span>
+                                    </label>
+                                    <span>Infinite Approval (Saves Gas)</span>
                                 </div>
                             )}
 

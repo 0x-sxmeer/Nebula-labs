@@ -59,27 +59,6 @@ export const useTokenApproval = ({
 
   const skipApproval = isNative || !tokenAddress || !ownerAddress || !spenderAddress;
 
-  // Read current allowance
-  const { 
-    data: currentAllowance, 
-    isLoading: isCheckingAllowance,
-    refetch: refetchAllowance,
-    isError: allowanceError,
-    error: allowanceCheckError
-  } = useReadContract({
-    address: tokenAddress,
-    abi: ERC20_ABI,
-    functionName: 'allowance',
-    args: [ownerAddress, spenderAddress],
-    chainId, // ✅ Explicit chainId to ensure we read from correct network
-    query: {
-      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress && !!chainId,
-      staleTime: 10000, // ✅ Optimized for public RPCs (10s)
-      retry: 1, 
-      retryDelay: 1000
-    }
-  });
-
   // Write approval
   const { 
     writeContract: approve,
@@ -95,6 +74,28 @@ export const useTokenApproval = ({
     isSuccess: isApprovalConfirmed 
   } = useWaitForTransactionReceipt({
     hash: approvalTxHash
+  });
+
+  // Read current allowance
+  const { 
+    data: currentAllowance, 
+    isLoading: isCheckingAllowance,
+    refetch: refetchAllowance,
+    isError: allowanceError,
+    error: allowanceCheckError
+  } = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: [ownerAddress, spenderAddress],
+    chainId, // ✅ Explicit chainId to ensure we read from correct network
+    query: {
+      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress && !!chainId,
+      staleTime: 2000, // ✅ Reduced from 10000 to 2000 for faster updates
+      refetchInterval: (isApproving || isConfirming) ? 3000 : false, // Poll every 3s during txn
+      retry: 1, 
+      retryDelay: 1000
+    }
   });
 
   // Calculate required amount

@@ -149,7 +149,7 @@ describe('useTokenApproval', () => {
     expect(mockRefetchAllowance).toHaveBeenCalled();
 
     await act(async () => {
-        vi.advanceTimersByTime(11000); // > 10000ms staleTime
+        vi.advanceTimersByTime(3000); // > 2000ms staleTime (and matches interval)
     });
 
     expect(mockRefetchAllowance).toHaveBeenCalledTimes(2);
