@@ -200,6 +200,30 @@ class SwapHistoryService {
         const base = explorers[chainId] || 'https://etherscan.io/tx/';
         return `${base}${txHash}`;
     }
+
+    /**
+     * Check status via Li.Fi API (Helper)
+     */
+    async getLiFiStatus(item) {
+        // Dynamic import to avoid circular dependencies if possible, 
+        // or just import at top. But service-to-service can be tricky.
+        // Let's assume lifiService is available. 
+        // Actually, importing `lifiService` here might be circular if `lifiService` imports this.
+        // `lifiService.js` does NOT import `swapHistoryService`. So it's safe.
+        const { lifiService } = await import('./lifiService');
+        
+        try {
+            return await lifiService.getStatus({
+                txHash: item.id,
+                bridge: item.provider,
+                fromChain: item.fromChain?.id,
+                toChain: item.toChain?.id
+            });
+        } catch (e) {
+            console.warn('LiFi Status Check failed:', e);
+            return null;
+        }
+    }
 }
 
 export const swapHistoryService = new SwapHistoryService();

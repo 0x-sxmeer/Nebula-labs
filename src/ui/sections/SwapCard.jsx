@@ -158,6 +158,24 @@ const SwapCard = () => {
 
     // ✅ CRITICAL FIX #1: Notification System State
     const [notifications, setNotifications] = useState([]);
+    
+    // ✅ UX ENHANCEMENT: Swap Button Transient State
+    const [swapButtonState, setSwapButtonState] = useState('IDLE'); // IDLE | EXECUTING | SUCCESS | FAILED
+    const [swapStartTime, setSwapStartTime] = useState(null);
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    // ✅ TIMER: Update elapsed time while executing
+    useEffect(() => {
+        let interval;
+        if (swapButtonState === 'EXECUTING' && swapStartTime) {
+            interval = setInterval(() => {
+                setElapsedTime(Math.floor((Date.now() - swapStartTime) / 1000));
+            }, 1000);
+        } else {
+            setElapsedTime(0);
+        }
+        return () => clearInterval(interval);
+    }, [swapButtonState, swapStartTime]);
 
     // ✅ HIGH #2: Network Status Monitoring
     const { isOnline } = useNetworkStatus();
@@ -392,12 +410,14 @@ const SwapCard = () => {
         if (!useAutoSlippage) return;
         
         const autoValue = calculateAutoSlippage();
-        setSlippage(autoValue / 100); // Convert percentage to decimal (0.5% -> 0.005)
-        setCustomSlippage(autoValue.toFixed(1));
-        
-        logger.log('🎯 Auto-slippage calculated:', autoValue, '%', 
-            selectedRoute ? `(Impact: ${selectedRoute.priceImpact}%, Steps: ${selectedRoute.steps?.length})` : '');
-    }, [useAutoSlippage, selectedRoute, calculateAutoSlippage, setSlippage]);
+        // Prevent infinite loop: Only update if value changes significantly
+        const currentSlippagePercent = slippage * 100;
+        if (Math.abs(autoValue - currentSlippagePercent) > 0.05) { // 0.05% tolerance
+            setSlippage(autoValue / 100); // Convert percentage to decimal (0.5% -> 0.005)
+            setCustomSlippage(autoValue.toFixed(1));
+            logger.log('🎯 Auto-slippage calculated:', autoValue, '%');
+        }
+    }, [useAutoSlippage, selectedRoute, calculateAutoSlippage, slippage, setSlippage]);
 
     /**
      * ✅ Validates and switches to correct chain before swap
@@ -489,6 +509,8 @@ const SwapCard = () => {
 
         try {
             setIsExecuting(true);
+            setSwapButtonState('EXECUTING'); // Set executing state
+            setSwapStartTime(Date.now()); // Start timer
             setExecutionError(null);
             setCompletedTxHash(null);
 
@@ -496,6 +518,7 @@ const SwapCard = () => {
             const chainValid = await ensureCorrectChain(fromChain.id);
             if (!chainValid) {
                 setIsExecuting(false);
+                setSwapButtonState('IDLE'); // Verify reset
                 return; // User refused to switch or switch failed
             }
 
@@ -514,11 +537,27 @@ const SwapCard = () => {
                 hasSufficientBalance, // Note: this might be stale if balance changed this second, but safe enough
                 checkBalance,
                 isApproved, // ✅ CRITICAL: Enforce logic-layer approval check
+                onHistoryUpdate: (update) => {
+                    // Direct callback update is more reliable than side-effects
+                    if (update.status === 'COMPLETED' || update.status === 'FAILED') {
+                         // We manually construct the swap object if needed, but updateStatus handles existing ID
+                         // If it's a new entry, we should ensure it exists.
+                         // But useSwapExecution usually calls this AFTER success/fail.
+                         // Let's trust useSwapExecution to pass the right data or just update status.
+                         updateStatus(update.txHash, update.status === 'COMPLETED' ? 'completed' : 'failed');
+                    }
+                }
             });
             if (result?.hash) {
                 setCompletedTxHash(result.hash);
                 // Also update manual hash for tracking
                 setManualHash(result.hash);
+                
+                // ✅ SUCCESS FEEDBACK
+                setSwapButtonState('SUCCESS');
+                setTimeout(() => {
+                    setSwapButtonState('IDLE');
+                }, 3000); // Show "Completed" for 3s then revert
             }
 
         } catch (error) {
@@ -541,10 +580,34 @@ const SwapCard = () => {
                 message: errorMessage,
                 recoverable: true,
             });
+            
+            // ✅ FAILURE FEEDBACK
+            setSwapButtonState('FAILED');
+            setTimeout(() => {
+                setSwapButtonState('IDLE');
+            }, 3000); // Show "Failed" for 3s then revert
+
         } finally {
             setIsExecuting(false);
+            // Note: We don't reset swapButtonState here immediately to allow the SUCCESS/FAILED state to persist for a bit
+            if (swapButtonState === 'EXECUTING') {
+                 // Only reset if we are still in executing state (e.g. early return)
+                 // But for success/fail paths we handle it above.
+            }
         }
     };
+
+    const resetSwapState = useCallback(() => {
+        setCompletedTxHash(null);
+        setManualHash(null);
+        setSwapButtonState('IDLE'); // Reset button state
+        setSwapStartTime(null); // Reset timer
+        if (resetTx) resetTx();
+        if (resetStatus) resetStatus();
+        setExecutionError(null);
+        // Optional: clear amounts if desired, but keeping them allows easy re-swap
+        // setFromAmount(''); 
+    }, [resetTx, resetStatus]);
 
     const handleSwap = () => {
         // 0. Connect Wallet
@@ -884,7 +947,11 @@ const SwapCard = () => {
                                                     <Activity size={16} color="var(--primary)" />
                                                 )}
                                                 <span style={{ fontWeight: 600 }}>
-                                                    {isShowingStatus ? (status === 'DONE' ? 'Swap Completed!' : (subStatusMsg || 'Transaction In Progress')) : 'Route Optimization'}
+                                                    {isShowingStatus ? (
+                                                        (status === 'DONE' || (completedTxHash && selectedRoute?.fromChainId === selectedRoute?.toChainId)) ? 'Swap Completed!' : 
+                                                        (completedTxHash && selectedRoute?.fromChainId !== selectedRoute?.toChainId) ? 'Bridge Transaction Sent' :
+                                                        (subStatusMsg || 'Transaction In Progress')
+                                                    ) : 'Route Optimization'}
                                                 </span>
                                                 <button 
                                                     style={{marginLeft:'auto', background:'rgba(255,255,255,0.1)', border:'none', color:'white', fontSize:'10px', padding:'2px 6px', borderRadius:'4px', cursor:'pointer'}}
@@ -896,6 +963,32 @@ const SwapCard = () => {
                                                 >
                                                     COMPARE ({routes.length})
                                                 </button>
+                                                
+                                                {/* ✅ RESET BUTTON FOR COMPLETED SWAPS */}
+                                                {(status === 'DONE' || (completedTxHash && selectedRoute?.fromChainId === selectedRoute?.toChainId)) && (
+                                                    <button 
+                                                        style={{
+                                                            marginLeft: '8px', 
+                                                            background: 'var(--primary)', 
+                                                            border: 'none', 
+                                                            color: 'white', 
+                                                            fontSize: '10px', 
+                                                            padding: '2px 8px', 
+                                                            borderRadius: '4px', 
+                                                            cursor: 'pointer',
+                                                            fontWeight: 'bold',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            resetSwapState();
+                                                        }}
+                                                    >
+                                                        <RotateCcw size={10} /> NEW SWAP
+                                                    </button>
+                                                )}
                                             </div>
                                             <ChevronDown size={16} style={{ transform: showRouteDetails ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
                                         </div>
@@ -1170,10 +1263,12 @@ const SwapCard = () => {
                                 </div>
                             )}
 
+                            {/* Swap/Approve Button Logic */}
                             {needsApproval && !isApproved && selectedRoute ? (
                                 <button 
                                     className="swap-button approve-button"
-                                    disabled={!isConnected || isApprovalPending}
+                                    // ✅ FIX: Only disable if actively waiting for wallet or mining.
+                                    disabled={!isConnected || isApprovalPending} 
                                     onClick={() => handleApprove(useInfiniteApproval)} 
                                     style={{
                                         background: 'linear-gradient(135deg, #FFC107 0%, #FF9800 100%)',
@@ -1188,15 +1283,34 @@ const SwapCard = () => {
                                 </button>
                             ) : (
                                 <button 
-                                    className="swap-button"
-                                    disabled={loading || isExecuting || (isConnected && (!hasSufficientBalance || !selectedRoute || (needsApproval && !isApproved)))}
+                                    className={`swap-button ${swapButtonState === 'SUCCESS' ? 'success-state' : swapButtonState === 'FAILED' ? 'error-state' : ''}`}
+                                    // ✅ FIX: Remove isChecking from disable logic to allow instant swaps
+                                    disabled={loading || isExecuting || (isConnected && (!hasSufficientBalance || !selectedRoute)) || swapButtonState === 'SUCCESS' || swapButtonState === 'FAILED'}
                                     onClick={handleSwap}
+                                    style={{
+                                        background: swapButtonState === 'SUCCESS' ? 'var(--success)' :
+                                                   swapButtonState === 'FAILED' ? 'var(--error)' :
+                                                   undefined, // Fallback to CSS default
+                                        transition: 'all 0.3s ease'
+                                    }}
                                 >
-                                    {loading ? <RefreshCw className="spin" /> : 
-                                     isExecuting ? <RefreshCw className="spin" /> :
-                                     !isConnected ? "Connect Wallet" :
-                                     !hasSufficientBalance ? "Insufficient Balance" :
-                                     "SWAP NOW"}
+                                    {swapButtonState === 'EXECUTING' ? (
+                                        <><RefreshCw className="spin" /> Processing ({elapsedTime}s)...</>
+                                    ) : swapButtonState === 'SUCCESS' ? (
+                                        <><CheckCircle size={20} /> Swap Completed!</>
+                                    ) : swapButtonState === 'FAILED' ? (
+                                        <><AlertCircle size={20} /> Swap Failed</>
+                                    ) : loading ? (
+                                        <RefreshCw className="spin" /> 
+                                    ) : isExecuting ? (
+                                        <RefreshCw className="spin" /> 
+                                    ) : !isConnected ? (
+                                        "Connect Wallet" 
+                                    ) : !hasSufficientBalance ? (
+                                        "Insufficient Balance" 
+                                    ) : (
+                                        "SWAP NOW"
+                                    )}
                                 </button>
                             )}
 
@@ -1415,17 +1529,26 @@ const SwapCard = () => {
                                                     >
                                                         {i === 0 && <div style={{position:'absolute', top:'-8px', right:'12px', background:'var(--primary)', fontSize:'10px', padding:'2px 6px', borderRadius:'4px', color:'white', fontWeight:'bold'}}>BEST</div>}
                                                         
-                                                        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
-                                                            <span style={{fontWeight:600}}>{route.provider}</span>
+                                                        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px', alignItems:'center'}}>
+                                                            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                                                {route.logoURI ? (
+                                                                    <img src={route.logoURI} alt={route.provider} style={{width:'20px', height:'20px', borderRadius:'50%'}} />
+                                                                ) : (
+                                                                    <div style={{width:'20px', height:'20px', borderRadius:'50%', background:'#333', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                                                                        <Zap size={12} color="#aaa"/>
+                                                                    </div>
+                                                                )}
+                                                                <span style={{fontWeight:600}}>{route.provider}</span>
+                                                            </div>
                                                             <span style={{fontWeight:600}}>${parseFloat(route.toAmountUSD || 0).toFixed(2)}</span>
                                                         </div>
                                                         
                                                         <div style={{display:'flex', gap:'12px', fontSize:'0.8rem', color:'#aaa'}}>
                                                             <div style={{display:'flex', alignItems:'center', gap:'4px'}}>
-                                                                <Zap size={12}/> ${route.gasCostUSD || '0.00'}
+                                                                <Zap size={12}/> ${route.gasUSD || '0.00'}
                                                             </div>
                                                             <div style={{display:'flex', alignItems:'center', gap:'4px'}}>
-                                                                <Layers size={12}/> {route.steps.length} Steps
+                                                                <Layers size={12}/> {route.steps.length} {route.steps.length === 1 ? 'Step' : 'Steps'}
                                                             </div>
                                                         </div>
                                                     </div>

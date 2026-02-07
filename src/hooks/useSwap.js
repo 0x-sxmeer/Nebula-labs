@@ -654,13 +654,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
       };
 
       // ✅ DEBUG LOG: Explicitly log the exact params sent to API
-      console.log('🚀 [useSwap] Requesting Routes:', {
-          fromChain: routeParams.fromChainId,
-          toChain: routeParams.toChainId,
-          fromToken: fromToken.symbol,
-          toToken: toToken.symbol,
-          amount: currentAmount,
-      });
+
 
       logger.log('Fetching routes...', routeParams);
 
@@ -764,7 +758,9 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
           gasUSD: gasCostUSD.toFixed(2), // Fixed: Expose aggregated gasUSD
           netValue: netValue, // Fixed: Expose netValue
           fees: allFees, // Fixed: Expose aggregated fees
-          timestamp: Date.now() // ✅ Added timestamp for validation
+          timestamp: Date.now(), // ✅ Added timestamp for validation
+          provider: route.steps?.[0]?.toolDetails?.name || route.steps?.[0]?.tool || 'Aggregator',
+          logoURI: route.steps?.[0]?.toolDetails?.logoURI
         };
       });
 
@@ -918,11 +914,7 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
     };
   }, [autoRefresh, isExecuting, fromAmount, walletAddress, loading]);
 
-  // ========== CHECK BALANCE ON CHANGES ==========
-  // ========== CHECK BALANCE ON CHANGES (DEBOUNCED) ==========
-  useEffect(() => {
-    checkBalance();
-  }, [checkBalance, debouncedAmount]); // ✅ CRITICAL FIX: Debounce balance checks
+
 
   // ========== FETCH AVAILABLE TOOLS ==========
   useEffect(() => {

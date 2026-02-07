@@ -185,7 +185,7 @@
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 16px;
-    padding: 14px 16px;
+    padding: 14px 16px 32px 16px; /* Added bottom padding for provider tag */
     transition: all 0.2s;
     position: relative;
 }
@@ -241,10 +241,12 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .history-item-footer {
@@ -287,13 +289,15 @@
 
 .provider-tag {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.3);
+    bottom: 12px;
+    right: 12px;
+    top: auto; /* Override top */
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.4);
     background: rgba(255, 255, 255, 0.05);
-    padding: 2px 8px;
-    border-radius: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .history-footer {

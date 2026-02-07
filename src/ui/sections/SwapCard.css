@@ -486,6 +486,22 @@
   animation: none;
 }
 
+.swap-button.success-state {
+  background: var(--success) !important;
+  color: white;
+  opacity: 1 !important; /* Override disabled opacity */
+  cursor: default;
+  box-shadow: 0 0 20px var(--success-glow);
+}
+
+.swap-button.error-state {
+  background: var(--error) !important;
+  color: white;
+  opacity: 1 !important; /* Override disabled opacity */
+  cursor: default;
+  box-shadow: 0 0 20px rgba(244, 67, 54, 0.4);
+}
+
 /* =========================================
    SETTINGS (BACK FACE) - PREMIUM
    ========================================= */

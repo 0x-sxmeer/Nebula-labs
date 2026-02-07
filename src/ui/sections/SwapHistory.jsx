@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, ExternalLink, CheckCircle, Clock, XCircle, Trash2, ArrowRight, X, Download } from 'lucide-react';
+import { History, ExternalLink, CheckCircle, Clock, XCircle, Trash2, ArrowRight, X, Download, RefreshCw } from 'lucide-react';
 import { useSwapHistory } from '../../hooks/useSwapHistory';
 import './SwapHistory.css';
 
@@ -38,7 +38,7 @@ const StatusBadge = ({ status }) => {
         failed: { icon: XCircle, color: '#FF5252', bg: 'rgba(255, 82, 82, 0.1)', text: 'Failed' }
     };
     
-    const { icon: Icon, color, bg, text } = config[status] || config.pending;
+    const { icon: Icon, color, bg, text } = config[status?.toLowerCase()] || config.pending;
     
     return (
         <div className="status-badge" style={{ background: bg, color }}>
@@ -120,7 +120,7 @@ const HistoryItem = ({ item, getExplorerUrl }) => {
 };
 
 const SwapHistory = ({ walletAddress, isOpen, onClose }) => {
-    const { history, isLoading, clearHistory, getExplorerUrl, exportToCSV, isEmpty } = useSwapHistory(walletAddress);
+    const { history, isLoading, clearHistory, getExplorerUrl, exportToCSV, refreshStatus, isEmpty } = useSwapHistory(walletAddress);
     const [showConfirmClear, setShowConfirmClear] = useState(false);
 
     const handleClearHistory = () => {
@@ -161,6 +161,14 @@ const SwapHistory = ({ walletAddress, isOpen, onClose }) => {
                                 <Download size={16} />
                             </button>
                         )}
+                        <button 
+                            className="action-btn"
+                            onClick={refreshStatus}
+                            title="Refresh Status"
+                            disabled={isLoading}
+                        >
+                            <RefreshCw size={16} className={isLoading ? "spin" : ""} />
+                        </button>
                         {!isEmpty && !showConfirmClear && (
                             <button 
                                 className="clear-btn"

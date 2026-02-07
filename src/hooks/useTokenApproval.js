@@ -1,6 +1,6 @@
 /**
- * useTokenApproval Hook - FIXED
- * ✅ Solves "Looping Approval" by trusting transaction receipts immediately (Optimistic UI)
+ * useTokenApproval Hook - STABILITY FIX
+ * ✅ Implements explicit hash tracking and refined error handling to fix stuck states.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -8,26 +8,19 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { logger } from '../utils/logger';
 
-// Standard ERC20 ABI
 const ERC20_ABI = [
   {
     name: 'allowance',
     type: 'function',
     stateMutability: 'view',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'spender', type: 'address' }
-    ],
+    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
     outputs: [{ name: '', type: 'uint256' }]
   },
   {
     name: 'approve',
     type: 'function',
     stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' }
-    ],
+    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
     outputs: [{ name: '', type: 'bool' }]
   }
 ];
@@ -52,35 +45,37 @@ export const useTokenApproval = ({
 }) => {
   const [status, setStatus] = useState(ApprovalStatus.UNKNOWN);
   const [error, setError] = useState(null);
-  const [showUnlimitedWarning, setShowUnlimitedWarning] = useState(false);
   
-  // Track if we just successfully approved in this session
+  // ✅ FIX 1: Manually track hash to ensure stability across renders
+  const [internalTxHash, setInternalTxHash] = useState(null);
+  
+  // ✅ FIX 2: Optimistic Latch
   const [optimisticApproved, setOptimisticApproved] = useState(false);
 
   const skipApproval = isNative || !tokenAddress || !ownerAddress || !spenderAddress;
 
-  // 1. Write approval
+  // 1. Write Contract
   const { 
-    writeContractAsync: approveAsync, // Use Async for better error handling
-    data: approvalTxHash,
+    writeContractAsync: approveAsync, 
     isPending: isApproving,
     reset: resetApproval
   } = useWriteContract();
 
-  // 2. Wait for confirmation
+  // 2. Wait for Receipt (Using manual hash)
   const { 
     isLoading: isConfirming, 
     isSuccess: isApprovalConfirmed 
-  } = useWaitForTransactionReceipt({
-    hash: approvalTxHash
+  } = useWaitForTransactionReceipt({ 
+    hash: internalTxHash,
+    query: {
+        enabled: !!internalTxHash,
+    }
   });
 
-  // 3. Read current allowance
+  // 3. Read Allowance
   const { 
     data: currentAllowance, 
     isLoading: isCheckingAllowance,
-    refetch: refetchAllowance,
-    error: allowanceCheckError
   } = useReadContract({
     address: tokenAddress,
     abi: ERC20_ABI,
@@ -88,132 +83,102 @@ export const useTokenApproval = ({
     args: [ownerAddress, spenderAddress],
     chainId,
     query: {
-      enabled: !skipApproval && !!tokenAddress && !!ownerAddress && !!spenderAddress,
-      staleTime: 5000, // Increased stale time to prevent flickering
-      retry: 2,
+      enabled: !skipApproval && !optimisticApproved && !!tokenAddress && !!ownerAddress && !!spenderAddress,
+      staleTime: 0, 
+      refetchInterval: optimisticApproved ? false : 3000, 
     }
   });
 
-  // 4. Calculate required amount
+  // 4. Helper: Calculate Amount
   const requiredAmount = useCallback(() => {
     if (!amount || isNaN(parseFloat(amount))) return BigInt(0);
-    try {
-      return parseUnits(amount.toString(), decimals);
-    } catch (e) {
-      return BigInt(0);
-    }
+    try { return parseUnits(amount.toString(), decimals); } 
+    catch (e) { return BigInt(0); }
   }, [amount, decimals]);
 
-  // 5. Determine if approval is needed (Logic Layer)
-  const needsApproval = useCallback(() => {
-    if (skipApproval) return false;
-    if (optimisticApproved) return false; // Trust the recent transaction
-    
-    // If we haven't fetched data yet, assume needed unless we are native
-    if (currentAllowance === undefined) return true;
-    
-    const required = requiredAmount();
-    return currentAllowance < required;
-  }, [skipApproval, currentAllowance, requiredAmount, optimisticApproved]);
+  // Logic: Check Approval Status
+  const checkIsApproved = useCallback(() => {
+    if (skipApproval) return true;
+    if (optimisticApproved) return true; 
+    if (currentAllowance === undefined) return false;
+    return currentAllowance >= requiredAmount();
+  }, [skipApproval, optimisticApproved, currentAllowance, requiredAmount]);
 
-  // 6. Main Status Logic
+  // 5. Effect: Handle Success
   useEffect(() => {
-    // A. Native tokens never need approval
+    if (isApprovalConfirmed && !optimisticApproved) {
+      logger.log('🚀 Approval Confirmed! Latching UI to APPROVED state.');
+      setOptimisticApproved(true);
+      setStatus(ApprovalStatus.APPROVED);
+    }
+  }, [isApprovalConfirmed, optimisticApproved]);
+
+  // 6. Effect: Sync Status
+  useEffect(() => {
     if (skipApproval) {
       setStatus(ApprovalStatus.APPROVED);
       return;
     }
 
-    // B. If we just confirmed a tx, force APPROVED status (Optimistic UI)
-    if (isApprovalConfirmed || optimisticApproved) {
+    if (optimisticApproved) {
       setStatus(ApprovalStatus.APPROVED);
-      if (!optimisticApproved) setOptimisticApproved(true);
       return;
     }
 
-    // C. Handle Transaction States
     if (isApproving || isConfirming) {
       setStatus(ApprovalStatus.PENDING);
       return;
     }
 
-    // D. Handle Data Fetching States
-    // Only show "CHECKING" if we have NO data yet. 
-    // If we have data but are refetching, keep showing the old status to prevent flicker.
     if (isCheckingAllowance && currentAllowance === undefined) {
       setStatus(ApprovalStatus.CHECKING);
       return;
     }
 
-    if (allowanceCheckError) {
-      // If RPC fails, but we thought we needed approval, stay on NEEDED
-      // This prevents UI breaking on flaky RPCs
-      logger.warn('Allowance check failed, defaulting to NEEDED', allowanceCheckError);
-      setStatus(ApprovalStatus.NEEDED); 
-      return;
-    }
-
-    // E. Final Calculation based on allowance
-    if (currentAllowance !== undefined) {
-      const required = requiredAmount();
-      if (currentAllowance >= required) {
-        setStatus(ApprovalStatus.APPROVED);
-      } else {
-        setStatus(ApprovalStatus.NEEDED);
-      }
+    if (checkIsApproved()) {
+      setStatus(ApprovalStatus.APPROVED);
+    } else {
+      setStatus(ApprovalStatus.NEEDED);
     }
   }, [
     skipApproval, 
+    optimisticApproved, 
     isApproving, 
     isConfirming, 
-    isApprovalConfirmed, 
-    optimisticApproved,
-    currentAllowance, 
     isCheckingAllowance, 
-    allowanceCheckError,
-    requiredAmount
+    currentAllowance, 
+    checkIsApproved
   ]);
 
-  // 7. Silent Background Polling after Confirmation
-  useEffect(() => {
-    if (isApprovalConfirmed) {
-      logger.log('✅ Transaction confirmed. Updating UI immediately.');
-      setOptimisticApproved(true); // Lock UI to approved
-      
-      // Poll quietly in background to update cache
-      const timer = setTimeout(() => {
-        refetchAllowance();
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isApprovalConfirmed, refetchAllowance]);
-
-  // 8. Request Approval Action
+  // 7. Request Action
   const requestApproval = useCallback(async (unlimited = false) => {
     setError(null);
     resetApproval();
+    setInternalTxHash(null); // Reset hash before new attempt
 
     try {
       const amountToApprove = unlimited ? maxUint256 : requiredAmount();
-      
-      // Safety buffer for exact approvals (add 10% to avoid rounding errors)
       const finalAmount = unlimited ? maxUint256 : (amountToApprove * 110n) / 100n;
 
       logger.log(`🔐 Requesting approval for: ${tokenAddress}`);
-      
-      await approveAsync({
+
+      // Wait for the promise to resolve with the hash
+      const hash = await approveAsync({
         address: tokenAddress,
         abi: ERC20_ABI,
         functionName: 'approve',
         args: [spenderAddress, finalAmount]
       });
+
+      // Manually set the hash to trigger the receipt waiter
+      if (hash) {
+          logger.log('📝 Approval Hash Received:', hash);
+          setInternalTxHash(hash);
+      }
       
     } catch (err) {
       logger.error('❌ Approval failed:', err);
-      if (err.message?.includes('User rejected')) {
-        setError('Approval cancelled');
-      } else {
+      if (err.message && !err.message.includes('User rejected')) {
         setError(err.message || 'Approval failed');
       }
     }
@@ -222,17 +187,16 @@ export const useTokenApproval = ({
   return {
     status,
     error,
-    needsApproval: needsApproval(),
-    // Combine states for easier UI consumption
-    isApproved: status === ApprovalStatus.APPROVED || optimisticApproved,
+    isApproved: status === ApprovalStatus.APPROVED || optimisticApproved, 
+    needsApproval: !optimisticApproved && !checkIsApproved(),
     isPending: status === ApprovalStatus.PENDING,
     isChecking: status === ApprovalStatus.CHECKING,
     requestApproval,
     formattedAllowance: currentAllowance ? formatUnits(currentAllowance, decimals) : '0',
-    approvalTxHash,
+    approvalTxHash: internalTxHash,
     resetError: () => setError(null),
-    showUnlimitedWarning,
-    setShowUnlimitedWarning,
+    showUnlimitedWarning: false,
+    setShowUnlimitedWarning: () => {},
   };
 };
 

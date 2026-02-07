@@ -10,7 +10,7 @@ const SwapPage = lazy(() => import('./pages/SwapPage'));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
-import DebugPanel from './ui/components/DebugPanel'; // ✅ Debug Tool
+
 
 import { useAccount } from 'wagmi';
 import { useEffect } from 'react';
@@ -37,7 +37,7 @@ function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
             </Routes>
             <WalletCleanup />
-            <DebugPanel />
+            <WalletCleanup />
           </div>
         </Suspense>
       </Router>

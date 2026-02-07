@@ -82,7 +82,8 @@ export const useTransactionStatus = () => {
 
             if (data.status === 'DONE' || data.status === 'FAILED') {
                 // Dry Run Fix: Break Point #10 - Verify destination chain for cross-chain swaps
-                const isCrossChain = data.sending?.chainId !== data.receiving?.chainId;
+                const isCrossChain = data.sending?.chainId && data.receiving?.chainId && 
+                                   Number(data.sending.chainId) !== Number(data.receiving.chainId);
                 
                 if (data.status === 'DONE' && isCrossChain && !data.receiving?.txHash) {
                     // Source done, but destination pending

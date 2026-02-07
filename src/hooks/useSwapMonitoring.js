@@ -59,6 +59,7 @@ export const useSwapMonitoring = () => {
 
   const monitoringIntervalRef = useRef(null);
   const startTimeRef = useRef(null);
+  const callbacksRef = useRef({ onStatusUpdate: null, onComplete: null, onError: null });
 
   /**
    * Clean up monitoring interval
@@ -81,10 +82,24 @@ export const useSwapMonitoring = () => {
     },
   });
 
+  // ✅ CRITICAL FIX: Trigger callbacks on state change to avoid closure staleness
+  useEffect(() => {
+     if (callbacksRef.current.onStatusUpdate) {
+         callbacksRef.current.onStatusUpdate(state);
+     }
+     
+     if (state.status === TransactionStatus.SUCCESS || state.status === TransactionStatus.FAILED || state.status === TransactionStatus.STUCK) {
+         if (callbacksRef.current.onComplete) {
+             callbacksRef.current.onComplete(state);
+         }
+     }
+  }, [state]);
+
   /**
    * Check if transaction is stuck (no confirmations after reasonable time)
    */
   const checkIfStuck = useCallback((startTime) => {
+    // ... (logic remains same, just ensuring we don't need changes here)
     const elapsed = Date.now() - startTime;
     const isBridgeTx = state.bridgeStatus !== null;
     const maxTime = isBridgeTx 
@@ -92,17 +107,12 @@ export const useSwapMonitoring = () => {
       : MONITORING_CONFIG.MAX_MONITORING_TIME;
 
     if (elapsed > maxTime) {
-      logger.warn('Transaction appears stuck:', {
-        elapsed,
-        maxTime,
-        txHash: state.txHash,
-      });
+      logger.warn('Transaction appears stuck:', { elapsed, maxTime, txHash: state.txHash });
 
       setState(prev => ({
         ...prev,
         status: TransactionStatus.STUCK,
-        error: `Transaction not confirmed after ${Math.round(elapsed / 60000)} minutes. ` +
-               'Please check block explorer or contact support.',
+        error: `Transaction not confirmed after ${Math.round(elapsed / 60000)} minutes. Check explorer.`,
       }));
 
       return true;
@@ -162,16 +172,7 @@ export const useSwapMonitoring = () => {
       return false; // Still pending
     } catch (error) {
       logger.error('Bridge status check failed:', error);
-      
       // Don't fail immediately on status check errors - might be temporary
-      setState(prev => ({
-        ...prev,
-        bridgeStatus: {
-          ...prev.bridgeStatus,
-          lastCheckError: error.message,
-        },
-      }));
-
       return false;
     }
   }, [stopMonitoring]);
@@ -183,10 +184,15 @@ export const useSwapMonitoring = () => {
     txHash,
     route,
     onStatusUpdate,
+    onComplete, // ✅ CRITICAL: Accept onComplete
+    onError
   }) => {
     if (!txHash || !route) {
       throw new Error('Invalid monitoring parameters');
     }
+
+    // Save callbacks
+    callbacksRef.current = { onStatusUpdate, onComplete, onError };
 
     // Initialize monitoring
     startTimeRef.current = Date.now();
@@ -230,12 +236,12 @@ export const useSwapMonitoring = () => {
           stopMonitoring();
         }
 
-        // Notify UI
-        onStatusUpdate?.(state);
+        // Note: We do NOT call onStatusUpdate here anymore to avoid stale state
+        // The useEffect handles it when state updates
       }, MONITORING_CONFIG.CHECK_INTERVAL);
     }
 
-  }, [checkBridgeStatus, checkIfStuck, stopMonitoring, state]);
+  }, [checkBridgeStatus, checkIfStuck, stopMonitoring]);
 
   /**
    * Handle on-chain receipt confirmation
