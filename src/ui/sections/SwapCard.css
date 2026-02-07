@@ -992,21 +992,6 @@
   button,
   .icon-button,
   .switch-button,
-  .max-btn {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  .max-btn {
-    padding: 10px 16px;
-    font-size: 0.75rem;
-  }
-  
-  .swap-button {
-    padding: 18px;
-  }
-  
-  /* Larger touch area for selector buttons */
   .chain-token-selector {
     min-height: 48px;
   }

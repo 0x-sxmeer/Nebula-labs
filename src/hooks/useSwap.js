@@ -175,6 +175,17 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   }, [toToken]);
 
   const setFromToken = useCallback((token) => {
+    // ✅ SANITY CHECK: Fix corrupted price data (e.g. USDC with ETH price)
+    if (token) {
+        const isStable = ['USDC', 'USDT', 'DAI', 'BUSD'].includes(token.symbol?.toUpperCase());
+        const price = parseFloat(token.priceUSD || '0');
+        
+        if (isStable && price > 2.0) {
+            logger.warn(`Correcting anomalous price for ${token.symbol}: ${price} -> 1.0`);
+            token = { ...token, priceUSD: '1.00' };
+        }
+    }
+    
     setFromTokenState(token);
     setRoutes([]);
     setSelectedRoute(null);

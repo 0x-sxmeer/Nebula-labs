@@ -613,9 +613,13 @@ const SwapCard = () => {
         }
     }, [activeHash, status, updateStatus]);
     // Calculate Value Difference (Input USD vs Output USD)
+    const rawPrice = parseFloat(fromToken?.priceUSD || '0');
+    const isStable = ['USDC', 'USDT', 'DAI', 'BUSD'].includes(fromToken?.symbol?.toUpperCase());
+    const safePrice = (isStable && rawPrice > 2.0) ? 1.0 : rawPrice;
+    
     const inputValUSD = selectedRoute?.inputUSD 
         ? parseFloat(selectedRoute.inputUSD) 
-        : (parseFloat(fromAmount || '0') * parseFloat(fromToken?.priceUSD || '0'));
+        : (parseFloat(fromAmount || '0') * safePrice);
 
     const outputValUSD = selectedRoute?.outputUSD 
         ? parseFloat(selectedRoute.outputUSD) 
@@ -710,7 +714,53 @@ const SwapCard = () => {
                                         </div>
                                         <div className="input-label-row">
                                             <span>You pay</span>
-                                            <span>Balance: {loadingBalance ? '...' : (balance?.formatted ? parseFloat(balance.formatted).toFixed(6) : '0.0')}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span>Balance: {loadingBalance ? '...' : (balance?.formatted ? parseFloat(balance.formatted).toFixed(6) : '0.0')}</span>
+                                                {balance?.value && (BigInt(balance.value) > 0n) && (
+                                                    <button
+                                                        className="max-text-btn"
+                                                        onClick={() => {
+                                                            if (balance?.value && fromToken) {
+                                                                if (isNativeToken) {
+                                                                    // Dynamic Gas Reservation
+                                                                    // Reserve based on current gas price (default to 0.005 ETH if gas fetch fails)
+                                                                    // 21000 units * gasPrice * 1.5 buffer
+                                                                    const gasPriceVal = BigInt(gasPrice?.standard || 5000000000); // 5 gwei default fallback
+                                                                    const estimatedGas = gasPriceVal * 300000n; // Swap gas limit
+                                                                    const buffer = (estimatedGas * 150n) / 100n; // 1.5x buffer
+                                                                    
+                                                                    // Ensure we don't reserve MORE than 0.01 ETH to be safe, but usually less
+                                                                    const cap = BigInt('10000000000000000'); // 0.01 ETH
+                                                                    const finalReserve = buffer > cap ? cap : buffer;
+
+                                                            const maxVal = BigInt(balance.value) > finalReserve 
+                                                                        ? formatUnits(BigInt(balance.value) - finalReserve, fromToken.decimals)
+                                                                        : formatUnits(BigInt(balance.value), fromToken.decimals);
+                                                                    
+                                                                    setFromAmount(maxVal);
+                                                                } else {
+                                                                    setFromAmount(formatUnits(balance.value, fromToken.decimals));
+                                                                }
+                                                            }
+                                                        }}
+                                                        disabled={loadingBalance}
+                                                        title="Use maximum balance"
+                                                        style={{
+                                                            background: 'rgba(255, 107, 53, 0.2)',
+                                                            color: '#FF6B35',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            padding: '2px 6px',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer',
+                                                            letterSpacing: '0.5px'
+                                                        }}
+                                                    >
+                                                        MAX
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="input-main-row">
                                             <input 
@@ -728,28 +778,7 @@ const SwapCard = () => {
                                                     }
                                                 }}
                                             />
-                                            {/* MAX Button */}
-                                            <button
-                                                className="max-btn"
-                                                onClick={() => {
-                                                    if (balance?.value && fromToken) {
-                                                        if (isNativeToken) {
-                                                            // Reserve 0.01 for gas on native tokens
-                                                            const reserveForGas = BigInt('10000000000000000'); // 0.01 ETH
-                                                            const maxVal = balance.value > reserveForGas 
-                                                                ? formatUnits(balance.value - reserveForGas, fromToken.decimals)
-                                                                : '0';
-                                                            setFromAmount(maxVal);
-                                                        } else {
-                                                            setFromAmount(formatUnits(balance.value, fromToken.decimals));
-                                                        }
-                                                    }
-                                                }}
-                                                disabled={!balance?.value || loadingBalance}
-                                                title="Use maximum balance"
-                                            >
-                                                MAX
-                                            </button>
+                                            {/* MAX Button Removed from here */}
                                             <ChainTokenSelector 
                                                 selectedChain={fromChain}
                                                 selectedToken={fromToken}

@@ -6,7 +6,7 @@ import { lifiService } from '../services/lifiService';
 import { logger } from '../utils/logger';
 import { NATIVE_TOKEN_ADDRESS } from '../config/lifi.config';
 import { APPROVED_LIFI_ROUTERS, GAS_LIMITS } from '../config/security';
-import { monitorTransaction } from './useSwapMonitoring';
+import useSwapMonitoring from './useSwapMonitoring';
 import { analytics } from '../services/analyticsService';
 import { celebrateSwapSuccess } from '../utils/celebration';
 

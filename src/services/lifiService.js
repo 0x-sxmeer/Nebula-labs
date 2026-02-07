@@ -229,7 +229,21 @@ class LiFiService {
   async getTokens(chainId) {
     try {
       const data = await this.makeRequest(`/tokens?chains=${chainId}`, { cache: true });
-      return data.tokens?.[chainId] || [];
+      const tokens = data.tokens?.[chainId] || [];
+      
+      // ✅ CRITICAL FIX: Global Sanitization of Stablecoin Prices
+      // Prevents "USDC = $2000" issues from API anomalies
+      const sanitizedTokens = tokens.map(t => {
+          if (['USDC', 'USDT', 'DAI', 'BUSD'].includes(t.symbol?.toUpperCase())) {
+              const price = parseFloat(t.priceUSD || '0');
+              if (price > 2.0) {
+                  return { ...t, priceUSD: '1.00' };
+              }
+          }
+          return t;
+      });
+
+      return sanitizedTokens;
     } catch (error) {
       logger.error('Error fetching tokens:', error);
       const parsedError = parseApiError(error);
