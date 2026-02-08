@@ -15,6 +15,8 @@ const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 import { useAccount } from 'wagmi';
 import { useEffect } from 'react';
 
+import { ToastProvider } from './ui/components/ToastProvider';
+
 function App() {
   // ✅ NEW: Handle wallet disconnection cleanup
   // Note: We need to use useAccount/useDisconnect here, but App is outside WagmiProvider?
@@ -26,21 +28,22 @@ function App() {
   
   return (
     <ErrorBoundary name="Application" message="The application encountered an unexpected error.">
-      <Router>
-        <Suspense fallback={<Preloader />}>
-          <div className="app-container">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/swap" element={<SwapPage />} />
-              <Route path="/portfolio" element={<PortfolioPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-            </Routes>
-            <WalletCleanup />
-            <WalletCleanup />
-          </div>
-        </Suspense>
-      </Router>
+      <ToastProvider>
+        <Router>
+          <Suspense fallback={<Preloader />}>
+            <div className="app-container">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/swap" element={<SwapPage />} />
+                <Route path="/portfolio" element={<PortfolioPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+              </Routes>
+              <WalletCleanup />
+            </div>
+          </Suspense>
+        </Router>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

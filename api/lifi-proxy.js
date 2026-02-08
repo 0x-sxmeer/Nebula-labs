@@ -10,11 +10,16 @@ export default async function handler(req, res) {
   const origin = req.headers.origin;
   
   // Set CORS headers dynamically based on origin
+  // Set CORS headers dynamically based on origin
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {
-    // Optional: Allow all if you want public access, otherwise block
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    // STRICT: Block all unauthorized origins
+    console.warn('🚨 Unauthorized origin blocked:', origin);
+    return res.status(403).json({ 
+      error: 'Forbidden', 
+      message: 'Origin not allowed' 
+    });
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');

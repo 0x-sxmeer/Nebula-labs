@@ -194,11 +194,23 @@ class LiFiService {
 
   canMakeRequest() {
     // Warn if getting close to limit
-    if (this.rateLimitInfo.remaining <= 5) {
-      if (typeof window !== 'undefined' && window.showToast) {
-        // Optional: Trigger toast if mechanism exists
-        logger.warn('API rate limit approaching');
+    // Warn if getting close to limit
+    if (this.rateLimitInfo.remaining <= 20) {
+      // ✅ High Priority #8: Visual feedback for rate limits
+      if (typeof window !== 'undefined' && window.showNotification) {
+         // Only show once every 10s to avoid spam
+         const now = Date.now();
+         if (!this._lastRateLimitWarn || now - this._lastRateLimitWarn > 10000) {
+             window.showNotification({
+                 type: 'warning',
+                 title: 'API Rate Limit',
+                 message: `High traffic. Requests remaining: ${this.rateLimitInfo.remaining}`,
+                 duration: 4000
+             });
+             this._lastRateLimitWarn = now;
+         }
       }
+      logger.warn('API rate limit approaching:', this.rateLimitInfo.remaining);
     }
     
     // STRICT enforcement
@@ -458,6 +470,14 @@ class LiFiService {
 
     const fromAmountAtomic = toBaseUnit(fromAmount, fromTokenDecimals);
 
+      // Dynamic slippage calculation
+      const calculateSafeSlippage = () => {
+         const isCrossChain = Number(fromChainId) !== Number(toChainId);
+         if (slippage !== LIFI_CONFIG.defaultSlippage) return Number(slippage);
+         if (isCrossChain) return 2.0; 
+         return Number(slippage); 
+      };
+
     try {
       const requestBody = {
         fromChainId: Number(fromChainId),
@@ -469,7 +489,7 @@ class LiFiService {
         toAddress: (toAddress || fromAddress) ? String(toAddress || fromAddress) : undefined,
         options: {
           order: 'FASTEST', // Get routes sorted by speed
-          slippage: Number(slippage),
+          slippage: calculateSafeSlippage(),
           maxPriceImpact: 1.0, // Allow ALL routes, even with high impact
           allowSwitchChain: true, // Allow chain switches if needed
           integrator: LIFI_CONFIG.integrator, // Required for analytics attribution

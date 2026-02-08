@@ -5,6 +5,7 @@ import FloatingBubbles from '../ui/effects/FloatingBubbles';
 import SwapCard from '../ui/sections/SwapCard';
 import { Reveal } from '../ui/effects/Animations';
 import { Zap, Shield, TrendingUp } from 'lucide-react';
+import ErrorBoundary from '../ui/shared/ErrorBoundary';
 
 const SwapPage = () => {
     return (
@@ -106,7 +107,17 @@ const SwapPage = () => {
 
                         {/* SwapCard */}
                         <Reveal delay={0.15}>
-                            <SwapCard />
+                            <ErrorBoundary fallback={
+                                <div style={{ padding: '2rem', textAlign: 'center', color: 'white' }}>
+                                    <h2>Swap Temporarily Unavailable</h2>
+                                    <p>We encountered an error loading the swap interface. Please refresh.</p>
+                                    <button onClick={() => window.location.reload()} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
+                                        Reload Page
+                                    </button>
+                                </div>
+                            }>
+                                <SwapCard />
+                            </ErrorBoundary>
                         </Reveal>
 
                         {/* Trust Badges */}

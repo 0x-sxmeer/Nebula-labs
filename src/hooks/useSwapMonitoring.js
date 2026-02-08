@@ -101,10 +101,19 @@ export const useSwapMonitoring = () => {
   const checkIfStuck = useCallback((startTime) => {
     // ... (logic remains same, just ensuring we don't need changes here)
     const elapsed = Date.now() - startTime;
-    const isBridgeTx = state.bridgeStatus !== null;
-    const maxTime = isBridgeTx 
-      ? MONITORING_CONFIG.BRIDGE_MAX_TIME 
-      : MONITORING_CONFIG.MAX_MONITORING_TIME;
+    const isBridgeTx = state.bridgeStatus !== null || state.status === TransactionStatus.BRIDGING;
+    
+    // ✅ CRITICAL FIX #6: Extended timeouts for slow bridges
+    let maxTime = MONITORING_CONFIG.MAX_MONITORING_TIME;
+    
+    if (isBridgeTx) {
+       // Check if we know the tool
+       // We don't have the route here easily unless we pass it to state or look it up.
+       // But we can be generous for ALL bridge txs.
+       maxTime = MONITORING_CONFIG.BRIDGE_MAX_TIME; // 1 hour
+       
+       // If we could detect Stargate, we'd ensure 45m+. 60m covers it.
+    }
 
     if (elapsed > maxTime) {
       logger.warn('Transaction appears stuck:', { elapsed, maxTime, txHash: state.txHash });

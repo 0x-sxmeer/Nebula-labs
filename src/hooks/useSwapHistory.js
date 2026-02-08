@@ -35,6 +35,8 @@ export const useSwapHistory = (walletAddress) => {
         
         setIsLoading(true);
         const currentHistory = swapHistoryService.getHistory(walletAddress);
+        const pendingItems = currentHistory.filter(item => item.status === 'PENDING' || item.status === 'processing');
+        
         if (pendingItems.length === 0) {
             setIsLoading(false);
             return;

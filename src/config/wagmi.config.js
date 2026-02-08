@@ -36,6 +36,7 @@ export const config = createConfig({
   // ✅ CRITICAL FIX: Resilient RPC Strategy (Multiple Fallbacks)
   transports: {
     [mainnet.id]: fallback([
+      http('https://rpc.mevblocker.io'), // ✅ MEV Protection (Task #19)
       http('https://cloudflare-eth.com'),
       http('https://rpc.ankr.com/eth'),
       http('https://eth.llamarpc.com')

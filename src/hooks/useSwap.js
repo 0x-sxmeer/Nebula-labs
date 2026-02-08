@@ -85,7 +85,17 @@ export const useSwap = (walletAddress, currentChainId = 1, routePreference = 'CH
   const timerIntervalRef = useRef(null);
   const abortControllerRef = useRef(null);
   const requestIdRef = useRef(0);
-  // ✅ CRITICAL FIX #7: Use Ref for amount to stabilize callbacks
+  // ✅ CRITICAL FIX #7: Clear state on disconnect
+  useEffect(() => {
+    if (!walletAddress) {
+        setFromAmount('');
+        setRoutes([]);
+        setSelectedRoute(null);
+        setBalance(null);
+        logger.log('🔌 Wallet disconnected - clearing swap state');
+    }
+  }, [walletAddress]);
+  
   const fromAmountRef = useRef(fromAmount);
   useEffect(() => { fromAmountRef.current = fromAmount; }, [fromAmount]);
 
