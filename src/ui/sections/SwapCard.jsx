@@ -276,6 +276,24 @@ const SwapCard = () => {
     });
 
     // Issue #8 fix: Wrapper to clear errors before retrying approval
+    // ✅ CRITICAL FIX #7: Clear state on wallet disconnect
+    useEffect(() => {
+        if (!isConnected) {
+            logger.log('🔌 Wallet disconnected - clearing swap state');
+            
+            // Clear all swap-related state
+            setFromToken(null);
+            setToToken(null);
+            setFromAmount('');
+            setSelectedRoute(null);
+            setExecutionError(null);
+            setSwapButtonState('IDLE');
+            
+            // Reset approval state if available
+            if (resetApprovalError) resetApprovalError();
+        }
+    }, [isConnected, setFromToken, setToToken, setFromAmount, setSelectedRoute, setExecutionError, setSwapButtonState, resetApprovalError]);
+
     const handleApprove = async (unlimited = false) => {
         // ✅ CRITICAL FIX #3: Enforce freshness check before approval
         if (isQuoteStale) {
