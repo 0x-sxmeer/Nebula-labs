@@ -1,0 +1,176 @@
+/* =========================================
+   ERROR BOUNDARY - FALLBACK UI
+   ========================================= */
+
+.error-boundary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 2rem;
+    background: linear-gradient(180deg, rgba(255, 82, 82, 0.03) 0%, transparent 100%);
+    border: 1px solid rgba(255, 82, 82, 0.1);
+    border-radius: 24px;
+    margin: 1rem 0;
+}
+
+.error-boundary-content {
+    text-align: center;
+    max-width: 480px;
+}
+
+.error-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 82, 82, 0.1);
+    border-radius: 50%;
+    color: #FF5252;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+.error-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.error-message {
+    margin: 0 0 1.5rem;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+
+.error-details {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 82, 82, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.error-details-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #FF5252;
+    margin-bottom: 0.75rem;
+}
+
+.error-code {
+    display: block;
+    background: rgba(255, 82, 82, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #FF5252;
+    font-family: var(--font-mono, monospace);
+    word-break: break-word;
+}
+
+.error-stack {
+    margin: 0.75rem 0 0;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    overflow-x: auto;
+    font-family: var(--font-mono, monospace);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.error-event-id {
+    margin: 0 0 1.5rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.error-event-id code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono, monospace);
+}
+
+.error-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.error-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.error-btn-primary {
+    background: linear-gradient(135deg, #FF6B35 0%, #FF8F5E 100%);
+    color: white;
+    box-shadow: 0 4px 20px rgba(255, 107, 53, 0.3);
+}
+
+.error-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(255, 107, 53, 0.4);
+}
+
+.error-btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.error-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.error-btn-ghost {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.error-btn-ghost:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+    .error-boundary {
+        padding: 1.5rem;
+    }
+
+    .error-actions {
+        flex-direction: column;
+    }
+
+    .error-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
