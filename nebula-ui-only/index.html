@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nebula Labs — UI Kit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/nebula.css" />
+</head>
+<body>
+
+  <!-- Animated starfield background (pure UI, canvas-driven) -->
+  <canvas id="starfield"></canvas>
+  <div class="nebula-glow glow-1"></div>
+  <div class="nebula-glow glow-2"></div>
+
+  <!-- ===== NAVBAR ===== -->
+  <header class="navbar glass">
+    <a class="brand" href="#">
+      <span class="brand-orb"></span>
+      Nebula<span class="brand-accent">Labs</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#home" class="active">Home</a>
+      <a href="#swap">Swap</a>
+      <a href="#portfolio">Portfolio</a>
+      <a href="#docs">Docs</a>
+    </nav>
+    <button class="btn btn-primary btn-connect">Connect Wallet</button>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </header>
+
+  <main>
+    <!-- ===== HERO ===== -->
+    <section id="home" class="hero">
+      <p class="eyebrow">⚡ Decentralized · Non-custodial · Cross-chain</p>
+      <h1 class="hero-title">
+        Trade at the speed of <span class="gradient-text">light</span>
+      </h1>
+      <p class="hero-sub">
+        A sleek, nebula-themed interface for swaps, portfolios and more.
+        This is a pure UI clone — drop it into any project.
+      </p>
+      <div class="hero-actions">
+        <a href="#swap" class="btn btn-primary btn-lg">Launch App</a>
+        <a href="#docs" class="btn btn-ghost btn-lg">Read Docs</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat glass"><strong>$12.4M</strong><span>Total Volume</span></div>
+        <div class="stat glass"><strong>38K+</strong><span>Traders</span></div>
+        <div class="stat glass"><strong>120+</strong><span>Pairs</span></div>
+      </div>
+    </section>
+
+    <!-- ===== SWAP CARD ===== -->
+    <section id="swap" class="section">
+      <h2 class="section-title">Swap <span class="gradient-text">Widget</span></h2>
+      <div class="swap-card glass">
+        <div class="swap-row">
+          <div class="token-box">
+            <button class="token-chip"><i class="coin coin-eth"></i> ETH <b>▾</b></button>
+            <input class="amount-input" placeholder="0.0" inputmode="decimal" />
+          </div>
+          <div class="balance-line"><span>Balance: 1.284</span><button class="max-btn">MAX</button></div>
+        </div>
+
+        <button class="swap-arrow" aria-label="Flip">⇅</button>
+
+        <div class="swap-row">
+          <div class="token-box">
+            <button class="token-chip"><i class="coin coin-usdc"></i> USDC <b>▾</b></button>
+            <input class="amount-input" placeholder="0.0" inputmode="decimal" />
+          </div>
+          <div class="balance-line"><span>Balance: 3,204.55</span></div>
+        </div>
+
+        <details class="quote-details">
+          <summary>Quote details</summary>
+          <div class="quote-rows">
+            <div><span>Rate</span><span>1 ETH = 3,214.09 USDC</span></div>
+            <div><span>Network fee</span><span>~$2.41</span></div>
+            <div><span>Slippage</span><span>0.5%</span></div>
+            <div><span>Route</span><span>EthRouter v2</span></div>
+          </div>
+        </details>
+
+        <button class="btn btn-primary btn-block btn-swap">Review Swap</button>
+      </div>
+    </section>
+
+    <!-- ===== PORTFOLIO PREVIEW ===== -->
+    <section id="portfolio" class="section">
+      <h2 class="section-title">Portfolio <span class="gradient-text">Preview</span></h2>
+      <div class="asset-list glass">
+        <div class="asset-row head"><span>Asset</span><span>Holdings</span><span>Value</span></div>
+        <div class="asset-row"><span><i class="coin coin-eth"></i> Ethereum</span><span>1.284 ETH</span><span>$4,127.90</span></div>
+        <div class="asset-row"><span><i class="coin coin-usdc"></i> USD Coin</span><span>3,204.55 USDC</span><span>$3,204.55</span></div>
+        <div class="asset-row"><span><i class="coin coin-nbl"></i> Nebula Token</span><span>8,500 NBL</span><span>$1,275.00</span></div>
+      </div>
+    </section>
+
+    <!-- ===== FEATURE CARDS ===== -->
+    <section id="docs" class="section">
+      <h2 class="section-title">Built for the <span class="gradient-text">void</span></h2>
+      <div class="features">
+        <div class="feature-card glass"><h3>🌌 Cross-chain Swaps</h3><p>Route across chains with a single click.</p></div>
+        <div class="feature-card glass"><h3>🔒 Non-custodial</h3><p>Your keys, your nebula. Funds never leave you.</p></div>
+        <div class="feature-card glass"><h3>⚡ Instant Quotes</h3><p>Real-time rates with smart routing.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer glass">
+    <span>© 2026 Nebula Labs UI Kit</span>
+    <span class="footer-links"><a href="#">Privacy</a> · <a href="#">Terms</a></span>
+  </footer>
+
+  <script src="js/starfield.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
